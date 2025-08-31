@@ -1,0 +1,27 @@
+=== pip install start Sun Aug 31 08:34:20 UTC 2025 ===
+Ignoring deepseed: markers 'extra == "cpu"' don't match your environment
+Collecting torch>=2.0 (from -r requirements.txt (line 1))
+  Downloading torch-2.8.0-cp311-cp311-manylinux_2_28_x86_64.whl.metadata (30 kB)
+Collecting torchvision (from -r requirements.txt (line 2))
+  Downloading torchvision-0.23.0-cp311-cp311-manylinux_2_28_x86_64.whl.metadata (6.1 kB)
+Collecting accelerate (from -r requirements.txt (line 3))
+  Downloading accelerate-1.10.1-py3-none-any.whl.metadata (19 kB)
+Collecting diffusers (from -r requirements.txt (line 4))
+  Downloading diffusers-0.35.1-py3-none-any.whl.metadata (20 kB)
+Collecting transformers (from -r requirements.txt (line 5))
+  Downloading transformers-4.56.0-py3-none-any.whl.metadata (40 kB)
+Collecting peft (from -r requirements.txt (line 6))
+  Downloading peft-0.17.1-py3-none-any.whl.metadata (14 kB)
+Collecting fvcore (from -r requirements.txt (line 7))
+  Downloading fvcore-0.1.5.post20221221.tar.gz (50 kB)
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Collecting torchmetrics (from -r requirements.txt (line 8))
+  Downloading torchmetrics-1.8.1-py3-none-any.whl.metadata (22 kB)
+Collecting pytorch-fid (from -r requirements.txt (line 10))
+  Downloading pytorch_fid-0.3.0-py3-none-any.whl.metadata (5.3 kB)
+=== experiment start Sun Aug 31 08:34:23 UTC 2025 ===
