@@ -1,12 +1,12 @@
 """
 evaluate.py – lightweight evaluation routine.
 Computes a simple denoising loss on a validation set and saves
-sample images as well as a loss curve under .research/iteration5/images.
+sample images as well as a loss curve under .research/iteration6/images.
 """
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List
+from typing import List
 
 import torch
 import torch.nn.functional as F
@@ -59,7 +59,7 @@ def evaluate(
     if accelerator.is_local_main_process:
         print("[Evaluate] starting evaluation …")
 
-    img_dir = Path(".research/iteration5/images")
+    img_dir = Path(".research/iteration6/images")
     img_dir.mkdir(parents=True, exist_ok=True)
 
     # Prepare model & data with Accelerate so that everything is on the right device.

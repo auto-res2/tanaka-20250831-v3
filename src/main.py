@@ -6,13 +6,11 @@ Keeping things minimal yet extensible.
 from __future__ import annotations
 
 import argparse
-import os
 from pathlib import Path
-from typing import Literal
 
 import torch
 from accelerate import Accelerator
-from diffusers import UNet2DConditionModel
+from diffusers import UNet2DConditionModel  # kept for potential future use
 
 from .evaluate import evaluate
 from .preprocess import get_dataloaders

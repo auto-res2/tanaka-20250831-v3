@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Literal, Tuple
+from typing import Literal
 
 import torch
 import torchvision
