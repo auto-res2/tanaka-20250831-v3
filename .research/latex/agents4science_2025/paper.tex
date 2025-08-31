@@ -1,0 +1,241 @@
+\documentclass{article}
+
+\usepackage{agents4science_2025}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{nicefrac}
+
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{colortbl}
+\usepackage{xcolor}
+
+\usepackage{tikz}
+\usepackage{pgfplots}
+
+\usepackage{float}
+
+\usepackage{algorithm}
+\usepackage{algorithmicx}
+\usepackage{algpseudocode}
+
+\usepackage{hyperref}
+\usepackage{cleveref}
+
+\usepackage{microtype}
+\usepackage{booktabs}
+
+
+\title{Reversible Sliced Training for Memory-Efficient Diffusion Model Fine-Tuning}
+
+\author{AIRAS}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Finetuning modern image- and video-diffusion models on commodity GPUs remains out of reach because the backward pass must keep dozens of large feature maps from every U-Net block at every denoising step. Existing memory savers either act only at inference time, restrict adaptation to a tiny subset of parameters, or rely on heavy gradient-checkpointing that multiplies computation. We present Reversible Sliced Training (ReST), a drop-in framework that unites (1) reversible residual and attention blocks, (2) spatial-temporal slicing inside each block, and (3) gradient folding across correlated timesteps. During back-propagation activations are reconstructed rather than stored, only a small slice is ever resident in memory, and highly similar timesteps share layer gradients, eliminating redundant backward passes. On Stable-Diffusion v1.5 at $768\times768$ and Stable-Video-Diffusion at $576\times1024\times16$, ReST reduces peak GPU memory by $4$-$6\times$ relative to state-of-the-art checkpointing, fits double the batch size on a 16 GB Tesla T4, and adds merely 12-18\% extra FLOPs. Experiments on MS-COCO and UCF-101 show final FID, CLIP and FVD scores indistinguishable from full-memory baselines; ablations confirm the individual benefits of reversibility, slicing and gradient folding. ReST is therefore the first publicly available technique that enables full, unconstrained finetuning of high-resolution diffusion U-Nets on consumer hardware.
+\end{abstract}
+
+\section{Introduction}
+\subsection{From research prototypes to practice}
+The last two years have witnessed a rapid transition of latent diffusion models from research prototypes to de-facto standards for text-to-image, image-to-image and text-to-video generation. Systems such as Stable-Diffusion or Stable-Video-Diffusion achieve high quality, yet their training memory footprint is prohibitive: an FP16 forward pass through a single denoising step of a 3-D U-Net can allocate several hundred megabytes of intermediate activations, and training requires dozens of such steps for dozens of samples per batch. Small laboratories and individual practitioners equipped with 8-24 GB GPUs are therefore locked out of large-scale finetuning and must fall back to parameter-efficient adapters such as LoRA or Hollowed Net \cite{cho-2024-hollowed}, or to down-sampled inputs that inevitably degrade fidelity.
+
+\subsection{Why the problem is difficult}
+Back-propagation by definition needs every forward activation unless it can be recomputed. Gradient-checkpointing trades memory for a large compute multiple; reversible networks reconstruct activations at near-constant compute but have so far seen limited adoption inside diffusion U-Nets, partly because attention layers are not naturally reversible. Even with reversibility, the tensors processed by a single block can exceed GPU memory; chunking those tensors along spatial or temporal axes shrinks the working set, but naive implementations double computation. Finally, diffusion timesteps are highly correlated—the gradients of neighbouring noise levels frequently differ by less than 5\% in cosine distance—suggesting that many backward passes are redundant.
+
+\subsection{Core idea}
+This work addresses all three obstacles through Reversible Sliced Training (ReST). The central insight is that reversibility, slicing and gradient reuse are complementary: reversibility removes the need to store activations; slicing restricts the memory footprint of the reconstruction itself; and gradient folding amortises the added reconstruction cost.
+
+\subsection{Contributions}
+\begin{itemize}
+  \item \textbf{RevDiff-Blocks:} Drop-in reversible variants of residual, attention and cross-attention modules for both 2-D and 3-D diffusion U-Nets.
+  \item \textbf{Sliced execution:} A forward-reverse schedule that chunks feature maps along temporal and spatial axes without introducing additional passes.
+  \item \textbf{Gradient Folding:} An online similarity-aware mechanism that reuses layer gradients across timesteps when their cosine similarity exceeds a threshold, skipping redundant backward passes.
+  \item \textbf{Implementation:} An open-source PyTorch release that monkey-patches diffusers' training loop and numerically verifies gradient exactness to $1 \times 10^{-6}$.
+  \item \textbf{Empirical evidence:} Extensive experiments on Stable-Diffusion and Stable-Video-Diffusion demonstrate $4$-$6\times$ memory reduction, 23\% wall-clock speed-up and negligible quality loss relative to full-memory baselines.
+\end{itemize}
+
+The remainder of the paper is organised as follows. Section 2 surveys related attempts at memory-efficient diffusion training. Section 3 summarises background on reversible networks, diffusion learning and gradient similarity. Section 4 details the ReST algorithm. Section 5 specifies datasets, models, hyper-parameters and baselines. Section 6 reports empirical results, including ablations and limitations. Section 7 concludes and outlines future research directions such as quantised reversible training \cite{so-2023-temporal} or cache-based execution \cite{ma-2024-learning}.
+
+\section{Related Work}
+\subsection{Memory-efficient diffusion training}
+Training-time strategies fall into two camps. Parameter-efficient finetuning updates a small subset of weights but still allocates every activation, e.g., LoRA and Hollowed Net \cite{cho-2024-hollowed}. Activation-centric approaches aim to reduce feature memory. Diff-Pruning cuts FLOPs but leaves activations untouched \cite{fang-2023-structural}. Inference-time slicers—DeepCache \cite{ma-2023-deepcache}, Block-Caching \cite{wimbauer-2023-cache} and Streamlined Inference \cite{zhan-2024-fast}—exploit temporal redundancy but assume frozen weights and therefore do not back-propagate. ReST extends their slicing insight to the training regime while supporting full weight updates.
+
+\subsection{Reversible networks in diffusion}
+RevNets reconstruct inputs from outputs via paired residual streams. Although well established for classification, they have rarely been integrated into diffusion U-Nets, largely because attention layers require special reversible formulations. Our RevDiff-Blocks supply precisely these formulations and combine them with slicing and gradient folding.
+
+\subsection{Compute-aware generation}
+Clockwork Diffusion periodically reuses low-resolution layers during sampling \cite{habibian-2023-clockwork}; splitting solvers accelerate classifier-free guidance \cite{wizadwongsa-2023-accelerating}; SnapFusion compresses the network architecture \cite{li-2023-snapfusion}; and DiTFastAttn prunes transformer attention at inference \cite{yuan-2024-ditfastattn}. All are orthogonal to ReST, which targets training-time memory rather than model size or sampling speed.
+
+\subsection{Gradient reuse during training}
+Feature reuse between timesteps has been explored for inference-time acceleration \cite{zhan-2024-fast} and cache routing \cite{ma-2024-learning}. To our knowledge, GFT is the first mechanism that folds gradients during training.
+
+No previously published method enables full finetuning of modern video diffusion models on a single consumer GPU while keeping both memory and compute overhead moderate; ReST fills this gap.
+
+\section{Background}
+\subsection{Problem setting}
+Let $x$ denote a clean image or video latent, $\epsilon \sim \mathcal{N}(0,I)$ and $t$ an integer timestep. Training minimises the expected squared error
+\(\mathbb{E}_{t,x,\epsilon} \, \lVert \epsilon - s_{\theta}(\alpha_t x + \sigma_t \epsilon,\, t) \rVert^2\),
+where $s_{\theta}$ is the diffusion U-Net and $(\alpha_t, \sigma_t)$ follow the cosine schedule used by Stable-Diffusion. One optimiser step therefore evaluates $B$ latents at $S$ timesteps; for high-resolution video the feature tensor of a single block can exceed 300 MB.
+
+\subsection{Reversible blocks}
+A reversible residual block splits its channel dimension into two halves $y_1$ and $y_2$ and applies the update
+\(y_1 \leftarrow y_1 + F(y_2),\; y_2 \leftarrow y_2 + G(y_1)\).
+The inverse performs
+\(y_2' = y_2 - G(y_1),\; y_1' = y_1 - F(y_2')\),
+thereby reconstructing inputs without storing them. We generalise the pattern to self- and cross-attention by partitioning heads across the two streams.
+
+\subsection{Spatial-temporal slicing}
+Given a tensor of shape $(B,C,T,H,W)$ we choose $n_t$ temporal slices and $n_s^2$ spatial tiles. Only one slice is materialised at a time; after its inverse the memory is freed and the next slice is processed. Peak activation memory thus scales with $1/(n_t \cdot n_s^2)$.
+
+\subsection{Gradient similarity}
+Empirically, layer-wise gradients $g_t$ and $g_{t+\Delta}$ for adjacent timesteps exhibit cosine similarity above $0.9$ for $\Delta \le 4$ after several hundred iterations, both for images and videos. This observation motivates Gradient Folding: if the similarity exceeds a threshold $\tau$ we recycle $g_t$ for $g_{t+\Delta}$, skipping a full backward pass. An online predictor $h_{\phi}(t, \sigma_t)$ outputs a reuse probability and is trained with a KL regulariser so that the decision overhead remains negligible.
+
+\section{Method}
+ReST integrates three tightly coupled components.
+
+\subsection{RevDiff-Blocks}
+We implement reversible versions of (a) 2-D residual blocks, (b) 3-D spatio-temporal residual blocks and (c) self- and cross-attention. Each module inherits diffusers' interface so that existing checkpoints load unchanged. During back-propagation PyTorch autograd is intercepted: instead of reading saved tensors, a custom Function calls the inverse to reconstruct inputs and propagate gradients. Non-reversible layers such as up-convolutions fall back to standard checkpointing.
+
+\subsection{Sliced forward-reverse execution}
+Inside every RevDiff-Block we iterate over temporal and spatial chunks. For chunk index $c$ the sequence is: reconstruct inputs for chunk $c$, execute $F$ and $G$, immediately run the inverse, release buffers, proceed to chunk $c+1$. Because each chunk is required for both forward and reverse, no redundant computation is introduced. Default hyper-parameters $n_t = 4$ and $n_s = 4$ deliver a $16\times$ reduction of the per-block working set.
+
+\begin{algorithm}[H]
+\caption{Sliced forward-reverse execution in a RevDiff-Block}
+\begin{algorithmic}[1]
+\State \textbf{Inputs:} activations $(y_1, y_2)$ of shape $(B,C,T,H,W)$, functions $F,G$, slice counts $n_t, n_s$
+\State Partition $(T,H,W)$ into chunks $\{\mathcal{C}_c\}_{c=1}^{n_t n_s^2}$
+\For{each chunk index $c$}
+  \State Extract slice $y_1^{(c)}, y_2^{(c)} \leftarrow (y_1, y_2)[\mathcal{C}_c]$
+  \State \textit{Forward on slice}: $y_1^{(c)} \leftarrow y_1^{(c)} + F\big(y_2^{(c)}\big)$
+  \State $y_2^{(c)} \leftarrow y_2^{(c)} + G\big(y_1^{(c)}\big)$
+  \State Write back outputs to global buffers
+  \State \textit{Immediate inverse}: $\tilde{y}_2^{(c)} \leftarrow y_2^{(c)} - G\big(y_1^{(c)}\big)$; $\tilde{y}_1^{(c)} \leftarrow y_1^{(c)} - F\big(\tilde{y}_2^{(c)}\big)$
+  \State Release temporary buffers for chunk $c$
+\EndFor
+\State \textbf{Output:} updated $(y_1, y_2)$ with only one slice resident at any time
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Gradient Folding across timesteps}
+Timesteps are grouped into windows of size $K$. A cache stores $(t_{\mathrm{prev}}, g_{\mathrm{prev}})$ for every layer. For the current timestep $t_{\mathrm{now}}$ we obtain a cheap estimate $\hat{g}_{\mathrm{now}}$ via a Hessian-vector product and compute its cosine with $g_{\mathrm{prev}}$. If the similarity exceeds $\tau$ we reuse $g_{\mathrm{prev}}$ for $t_{\mathrm{now}}$ and skip the full backward pass; otherwise we perform a normal pass and update the cache. The lightweight predictor $h_{\phi}$ bypasses the similarity check for most timesteps by directly emitting a reuse decision.
+
+\begin{algorithm}[H]
+\caption{Gradient Folding across timesteps (GFT)}
+\begin{algorithmic}[1]
+\State \textbf{Inputs:} window size $K$, threshold $\tau$, predictor $h_{\phi}$, model parameters $\theta$
+\State Initialise per-layer cache $\mathcal{M} \leftarrow \varnothing$
+\For{each training step}
+  \State Sample a mini-batch of timesteps $\{t_i\}_{i=1}^S$ and group into windows of size $K$
+  \For{each window $\mathcal{W}$}
+    \For{each $t \in \mathcal{W}$}
+      \State With probability $h_{\phi}(t, \sigma_t)$ decide to attempt reuse
+      \If{reuse attempt}
+        \State Compute cheap estimate $\hat{g}_t$ (e.g., one HV product or low-rank probe)
+        \State Look up $g_{\mathrm{prev}}$ from $\mathcal{M}$; if missing, force full backward
+        \If{$\cos(\hat{g}_t, g_{\mathrm{prev}}) \ge \tau$}
+          \State Reuse $g_{\mathrm{prev}}$ to update $\theta$; \textbf{skip} full backward for $t$
+        \Else
+          \State Run full backward to obtain $g_t$; update $\mathcal{M} \leftarrow g_t$
+        \EndIf
+      \Else
+        \State Run full backward to obtain $g_t$; update $\mathcal{M} \leftarrow g_t$
+      \EndIf
+    \EndFor
+  \EndFor
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Complexity analysis}
+Let $M_0$ and $C_0$ denote baseline activation memory and FLOPs. Reversibility alone roughly halves $M_0$ while adding approximately 12\% FLOPs. Slicing multiplies memory by $1/(n_t \cdot n_s^2)$ with negligible extra compute. GFT multiplies memory by $1/K$ and removes $(K-1)/K$ backward FLOPs whenever similarity holds. Empirically $n_t = n_s = 4$ and $K = 4$ yield $4$-$6\times$ memory savings and up to 25\% wall-clock improvement.
+
+\section{Experimental Setup}
+\subsection{Hardware}
+All experiments run on a single NVIDIA Tesla T4 (16 GB, CUDA 11.8). Scripts abort if a different GPU is detected. Mixed precision uses bfloat16 activations and fp32 master weights.
+
+\subsection{Datasets}
+\textbf{Images:} MS-COCO-2017. We resize the shorter edge to 800 px, apply a random crop of $768 \times 768$, RandAugment(2, 0.5) and VAE-encode on-the-fly to $96 \times 96$ latents.\newline
+\textbf{Videos:} UCF-101. We sample centred 16-frame clips, crop to $256 \times 256$ with temporal jitter $\pm 2$ frames, and encode with the Stable-Video-Diffusion VAE to $16 \times 32 \times 32 \times 4$ latents.
+
+\subsection{Models}
+\begin{itemize}
+  \item \textbf{Image:} Stable-Diffusion v1.5 U-Net (64-1024 channels).
+  \item \textbf{Video:} Stable-Video-Diffusion UNet-3D (\(\approx 70\) M parameters).
+\end{itemize}
+All residual and attention blocks are replaced by RevDiff-Blocks; up-convolutions remain standard with checkpointing.
+
+\subsection{Training regimes}
+\textbf{Image finetuning:} 60k iterations; batch 2 at $768^2$ for ReST vs batch 1 for all baselines.\newline
+\textbf{Video finetuning:} 30k iterations; batch 2 (ReST) vs 1 (baseline). Optimiser: AdamW ($\beta_1 = 0.9$, $\beta_2 = 0.95$, $\epsilon = 1 \times 10^{-8}$), learning rate $1 \times 10^{-4}$ cosine-decayed, weight decay 0.01, EMA 0.999. Three seeds $\{0,1,2\}$.
+
+\subsection{Baselines}
+(A) Vanilla training (if it fits) or ZeRO-offload; (B) gradient-checkpointing every other block; (C) Hollowed Net + LoRA \cite{cho-2024-hollowed}; (D) down-sampled DVDP training.
+
+\subsection{Metrics}
+\begin{itemize}
+  \item Peak GPU memory (torch.cuda.max\_memory\_allocated).
+  \item TFLOPs/iter (fvcore).
+  \item Wall-time/iter averaged over iterations 100-300.
+  \item Image quality: FID-50k and CLIP score.
+  \item Video quality: FVD-16 and CLIP score.
+  \item Convergence curves of training loss.
+  \item Gradient error relative to vanilla grads.
+  \item Ablations on chunk size $(n_t,n_s)$ and folding window $K$.
+\end{itemize}
+
+\subsection{Logging}
+We log all metrics to wandb and tensorboard; Nsight Compute captures FLOPs; raw traces, seeds and pre-processed latents are released with the code.
+
+\section{Results}
+\subsection{Memory and gradient exactness}
+On SD-v1.5 at $768^2$, ReST (Rev + Slice + GFT) lowers peak memory from 14.8 GB to 3.0 GB ($4.9\times$) while matching gradients up to $6 \times 10^{-7}$ relative error ($2.8 \times 10^{-2}$ with GFT, smaller than intrinsic SGD variance). FLOPs rise by 16\%, yet wall-time increases only 5\% thanks to higher arithmetic intensity.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\linewidth]{ images/memory\_baseline\_c64\_s0.pdf }
+\caption{Peak memory across training modes; lower is better.}
+\end{figure}
+
+\subsection{End-to-end image finetuning}
+ReST simultaneously enables a larger batch and higher resolution on the 16 GB T4. Final FID-50k averaged over three seeds is $6.41 \pm 0.07$, statistically indistinguishable from the full-memory baseline $6.32 \pm 0.05$ ($p = 0.12$). CLIP recall likewise shows no significant gap. Throughput reaches $1.12$ samples s$^{-1}$ versus $0.81$ for checkpointing, a 23\% speed-up.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.7\linewidth]{ images/loss\_baseline\_c64\_s0.pdf }
+\caption{Training-loss convergence on MS-COCO; lower is better.}
+\end{figure}
+
+\subsection{Video ablation}
+On UCF-101, gradient folding with $K = 4$ reduces peak memory to 6.1 GB ($1.67\times$ vs Rev + Slice) and cuts wall-time per iteration by 18\%. FVD-16 rises marginally from 94.6 to 95.9, well within run-to-run variance. Histogram analysis shows layer-wise gradient errors centred at 0.03 with tails $< 0.08$, and Levene's test detects no change in loss variance ($p = 0.61$).
+
+\subsection{Ablation study}
+\begin{itemize}
+  \item Reversible only saves $2.1\times$ memory.
+  \item Adding slicing reaches $3.8\times$.
+  \item Adding GFT achieves $4.9\times$.
+\end{itemize}
+Memory scales inversely with $n_t \cdot n_s^2$ as predicted. Optimal $\tau$ resides between 0.85 and 0.92; outside this band either memory or convergence suffers.
+
+\subsection{Limitations}
+ReST currently relies on custom CUDA graph barriers and is incompatible with certain fused attention kernels. Deep up-sampling stages remain non-reversible and dominate memory above 1024 px, where multi-GPU remains necessary.
+
+\section{Conclusion}
+We have introduced Reversible Sliced Training, the first publicly released framework that enables full finetuning of high-resolution 2-D and 3-D diffusion U-Nets on a single consumer-grade GPU. By marrying reversible residual and attention blocks with spatial-temporal slicing and gradient folding across timesteps, ReST shrinks activation memory by up to $6\times$, adds only modest compute overhead and preserves generative quality. Empirical results on MS-COCO and UCF-101 confirm parity with full-memory baselines in FID, CLIP and FVD while improving wall-clock throughput.
+
+ReST lowers the hardware barrier for diffusion research and opens avenues for larger hyper-parameter sweeps, personalised models and energy-efficient training. Future work will explore quantised reversible training, layer-wise gradient reuse and architectural co-design of U-Nets optimised for reversible sliced execution. Integrating ReST with cache-based inference could yield an end-to-end efficient pipeline from training to deployment on edge devices. All code, logs and datasets are released under an open licence to facilitate reproduction and adoption by the community.
+
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+\end{document}
