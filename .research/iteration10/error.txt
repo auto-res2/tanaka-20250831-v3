@@ -1,0 +1,7 @@
+/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/train.py:130: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler = GradScaler()
+/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/evaluate.py:65: FutureWarning: 
+
+Passing `palette` without assigning `hue` is deprecated and will be removed in v0.14.0. Assign the `x` variable to `hue` and set `legend=False` for the same effect.
+
+  sns.barplot(x=[""], y=[score], palette=["#4C72B0"])
