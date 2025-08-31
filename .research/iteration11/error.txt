@@ -1,0 +1,5 @@
+usage: main.py [-h] --mode {train,eval} [--data_root DATA_ROOT]
+               [--batch_size BATCH_SIZE] [--image_size IMAGE_SIZE]
+               [--num_steps NUM_STEPS] [--lr LR] [--use_rechunet USE_RECHUNET]
+               [--chunk_hw CHUNK_HW] [--chunk_tb CHUNK_TB]
+main.py: error: the following arguments are required: --mode
