@@ -1,0 +1,10 @@
+{
+  "research_topic": "diffusion modelの学習でメモリを抑えられるアーキテクチャ",
+  "queries": [
+    "memory-efficient diffusion",
+    "diffusion memory optimization",
+    "diffusion gradient checkpointing",
+    "activation offload diffusion",
+    "low-memory diffusion training"
+  ]
+}
