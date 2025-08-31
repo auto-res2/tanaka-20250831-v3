@@ -2,7 +2,7 @@
 ----------------------------------
 Simple evaluation script that loads the model produced by `train.py` and
 computes a reconstruction MSE on a held-out validation set.
-Figures are saved as PDF in `.research/iteration14/images`.
+Figures are saved as PDF in `.research/iteration15/images`.
 """
 from __future__ import annotations
 
@@ -18,10 +18,17 @@ from tqdm import tqdm
 # ---------------------------------------------------------------------------
 try:
     from .preprocess import get_dataloaders  # type: ignore
-    from .train import TinyUNet, _apply_rechu_if_available  # type: ignore
+    from .train import TinyUNet, _apply_rechu_if_available, IMG_DIR  # type: ignore
 except ImportError:  # executed as a script
     from preprocess import get_dataloaders  # type: ignore
-    from train import TinyUNet, _apply_rechu_if_available  # type: ignore
+    from train import TinyUNet, _apply_rechu_if_available, IMG_DIR  # type: ignore
+
+
+def _pretty_path(p: pathlib.Path) -> str:
+    try:
+        return str(p.relative_to(pathlib.Path.cwd()))
+    except ValueError:
+        return str(p)
 
 
 def evaluate(cfg: Dict):
@@ -29,7 +36,7 @@ def evaluate(cfg: Dict):
     print(f"[eval]  Using device: {device}")
 
     # 1. data
-    val_loader = get_dataloaders(cfg)[2]
+    val_loader = get_dataloaders(cfg)[1]  # validation loader
 
     # 2. model
     model = TinyUNet(base_channels=cfg.get("base_channels", 32))
@@ -73,12 +80,11 @@ def evaluate(cfg: Dict):
         axes[i, 1].imshow(preds_vis[i].permute(1, 2, 0))
         axes[i, 1].axis("off")
     fig.suptitle("Ground-truth (left) vs. reconstruction (right)")
-    img_dir = pathlib.Path(".research/iteration14/images")
-    img_dir.mkdir(parents=True, exist_ok=True)
-    fig_path = img_dir / "qualitative_eval.pdf"
+    IMG_DIR.mkdir(parents=True, exist_ok=True)
+    fig_path = IMG_DIR / "qualitative_eval.pdf"
     plt.tight_layout()
     plt.savefig(fig_path, bbox_inches="tight")
     plt.close()
-    print(f"[eval]  Qualitative figure saved → {fig_path.relative_to(pathlib.Path.cwd())}")
+    print(f"[eval]  Qualitative figure saved → {_pretty_path(fig_path)}")
 
     return mse

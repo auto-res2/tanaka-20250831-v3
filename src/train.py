@@ -37,6 +37,13 @@ except ImportError:  # fallback when executed as a plain script
     from preprocess import get_dataloaders  # type: ignore
 
 # -----------------------------------------------------------
+# Constants
+# -----------------------------------------------------------
+# Central place that defines where *all* images are stored so that we only
+# have to change a single variable if the location ever moves again.
+IMG_DIR = pathlib.Path(".research/iteration15/images")
+
+# -----------------------------------------------------------
 # Small, GPU-friendly UNet we can really train in a few minutes
 # -----------------------------------------------------------
 
@@ -105,6 +112,18 @@ def _apply_rechu_if_available(model: nn.Module, cfg: Dict):
 
 
 # -----------------------------------------------------------
+# Utility – safe relative path printing
+# -----------------------------------------------------------
+
+def _pretty_path(p: pathlib.Path) -> str:
+    """Return a path relative to CWD when possible, otherwise the absolute path."""
+    try:
+        return str(p.relative_to(pathlib.Path.cwd()))
+    except ValueError:
+        return str(p)
+
+
+# -----------------------------------------------------------
 # Public training entry-point
 # -----------------------------------------------------------
 
@@ -169,35 +188,30 @@ def train(cfg: Dict):
         print(f"[train]  Peak GPU memory during training: {mem_peak} MB")
 
     # ---------------------------------------------------------------------
-    # 4. Save artefacts
+    # 4. Save artefacts – model + figures
     # ---------------------------------------------------------------------
     models_dir = pathlib.Path("models")
     models_dir.mkdir(parents=True, exist_ok=True)
     model_path = models_dir / "toy_unet.pt"
     torch.save(model.state_dict(), model_path)
-    print(f"[train]  Model saved → {model_path.relative_to(pathlib.Path.cwd())}")
+    print(f"[train]  Model saved → {_pretty_path(model_path)}")
 
     # plot loss curve for paper-ready pdf
     import matplotlib as mpl
 
     mpl.use("Agg")
     import matplotlib.pyplot as plt
-    from pathlib import Path
 
-    # ------------------------------------------------------------------
-    # NOTE: all experiment images are now saved under iteration14
-    # ------------------------------------------------------------------
-    img_dir = Path(".research/iteration14/images")
-    img_dir.mkdir(parents=True, exist_ok=True)
+    IMG_DIR.mkdir(parents=True, exist_ok=True)
     plt.figure(figsize=(6, 4))
     plt.plot(losses)
     plt.xlabel("iteration")
     plt.ylabel("MSE loss")
     plt.title("Training loss curve")
     plt.tight_layout()
-    fig_path = img_dir / "training_loss_curve.pdf"
+    fig_path = IMG_DIR / "training_loss_curve.pdf"
     plt.savefig(fig_path, bbox_inches="tight")
     plt.close()
-    print(f"[train]  Loss curve saved → {fig_path.relative_to(Path.cwd())}")
+    print(f"[train]  Loss curve saved → {_pretty_path(fig_path)}")
 
     return str(model_path)
