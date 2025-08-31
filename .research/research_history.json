@@ -6,5 +6,82 @@
     "diffusion model checkpointing",
     "attention slicing diffusion",
     "low-memory diffusion training"
+  ],
+  "research_study_list": [
+    {
+      "title": "Fast and Memory-Efficient Video Diffusion Using Streamlined Inference"
+    },
+    {
+      "title": "Hollowed Net for On-Device Personalization of Text-to-Image Diffusion Models"
+    },
+    {
+      "title": "Multistep Distillation of Diffusion Models via Moment Matching"
+    },
+    {
+      "title": "SnapFusion: Text-to-Image Diffusion Model on Mobile Devices within Two Seconds"
+    },
+    {
+      "title": "Improving Training Efficiency of Diffusion Models via Multi-Stage Framework and Tailored Multi-Decoder Architecture"
+    },
+    {
+      "title": "Fast and Memory-Efficient Video Diffusion Using Streamlined Inference"
+    },
+    {
+      "title": "Temporal Dynamic Quantization for Diffusion Models"
+    },
+    {
+      "title": "DeepCache: Accelerating Diffusion Models for Free"
+    },
+    {
+      "title": "Cache Me if You Can: Accelerating Diffusion Models through Block Caching"
+    },
+    {
+      "title": "A Simple Early Exiting Framework for Accelerated Sampling in Diffusion Models"
+    },
+    {
+      "title": "Structural Pruning for Diffusion Models"
+    },
+    {
+      "title": "Temporal Dynamic Quantization for Diffusion Models"
+    },
+    {
+      "title": "Cache Me if You Can: Accelerating Diffusion Models through Block Caching"
+    },
+    {
+      "title": "A Simple Early Exiting Framework for Accelerated Sampling in Diffusion Models"
+    },
+    {
+      "title": "Clockwork Diffusion: Efficient Generation With Model-Step Distillation"
+    },
+    {
+      "title": "Slicedit: Zero-Shot Video Editing With Text-to-Image Diffusion Models Using Spatio-Temporal Slices"
+    },
+    {
+      "title": "Attention-Driven Training-Free Efficiency Enhancement of Diffusion Models"
+    },
+    {
+      "title": "AID: Attention Interpolation of Text-to-Image Diffusion"
+    },
+    {
+      "title": "Accelerating Guided Diffusion Sampling with Splitting Numerical Methods"
+    },
+    {
+      "title": "DiTFastAttn: Attention Compression for Diffusion Transformer Models"
+    },
+    {
+      "title": "Hollowed Net for On-Device Personalization of Text-to-Image Diffusion Models"
+    },
+    {
+      "title": "Learning-to-Cache: Accelerating Diffusion Transformer via Layer Caching"
+    },
+    {
+      "title": "Ambient Diffusion: Learning Clean Distributions from Corrupted Data"
+    },
+    {
+      "title": "Multistep Distillation of Diffusion Models via Moment Matching"
+    },
+    {
+      "title": "Dimensionality-Varying Diffusion Process"
+    }
   ]
 }
