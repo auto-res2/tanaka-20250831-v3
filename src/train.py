@@ -12,16 +12,15 @@ The trainer logs
   – peak GPU memory (GB),
   – iterations / second
 and stores them as a CSV so that downstream visualisation is trivial.
-Figures are saved as PDF (Vector) under .research/iteration2/images.
+Figures are saved as PDF (Vector) under .research/iteration3/images.
 """
 from __future__ import annotations
 
 import csv
-import os
 import time
 from collections import defaultdict
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict
 
 import numpy as np
 import torch
@@ -152,7 +151,7 @@ class Trainer:
             print(f"[Trainer] metrics saved → {csv_path}")
 
             # plot loss curve & memory curve -----------------------------
-            img_dir = Path(".research/iteration2/images")
+            img_dir = Path(".research/iteration3/images")
             img_dir.mkdir(parents=True, exist_ok=True)
             save_line_plot(
                 self.metrics["step"],
