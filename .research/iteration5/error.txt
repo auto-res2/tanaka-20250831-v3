@@ -1,0 +1,25 @@
+Fetching 13 files:   0%|          | 0/13 [00:00<?, ?it/s]Fetching 13 files:   8%|▊         | 1/13 [00:00<00:03,  3.95it/s]Fetching 13 files:  38%|███▊      | 5/13 [00:31<00:53,  6.72s/it]Fetching 13 files:  85%|████████▍ | 11/13 [00:32<00:04,  2.49s/it]Fetching 13 files: 100%|██████████| 13/13 [00:32<00:00,  2.51s/it]
+Loading pipeline components...:   0%|          | 0/6 [00:00<?, ?it/s]`torch_dtype` is deprecated! Use `dtype` instead!
+Loading pipeline components...:  17%|█▋        | 1/6 [00:00<00:00,  7.65it/s]Loading pipeline components...:  50%|█████     | 3/6 [00:00<00:00,  3.51it/s]Loading pipeline components...: 100%|██████████| 6/6 [00:00<00:00,  6.87it/s]
+You have disabled the safety checker for <class 'diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion.StableDiffusionPipeline'> by passing `safety_checker=None`. Ensure that you abide to the conditions of the Stable Diffusion license and do not expose unfiltered results in services or applications open to the public. Both the diffusers team and Hugging Face strongly recommend to keep the safety filter enabled in all public facing circumstances, disabling it only for use-cases that involve analyzing network behavior or auditing its results. For more information, please have a look at https://github.com/huggingface/diffusers/pull/254 .
+/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/train.py:96: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler = GradScaler()
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/main.py", line 98, in <module>
+    main()
+  File "/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/main.py", line 90, in main
+    _exp1()
+  File "/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/main.py", line 46, in _exp1
+    metrics = run_image_finetune(cfg)
+              ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/train.py", line 100, in run_image_finetune
+    fid_eval = FIDEvaluator(device)
+               ^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/evaluate.py", line 33, in __init__
+    self._impl = FrechetInceptionDistance(feature=2048, normalize=True).to(device)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/_tool/Python/3.11.13/x64/lib/python3.11/site-packages/torchmetrics/image/fid.py", line 335, in __init__
+    raise ModuleNotFoundError(
+ModuleNotFoundError: FrechetInceptionDistance metric requires that `Torch-fidelity` is installed. Either install as `pip install torchmetrics[image]` or `pip install torch-fidelity`.
