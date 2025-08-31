@@ -1,0 +1,25 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/main.py", line 83, in <module>
+    main()
+  File "/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/main.py", line 72, in main
+    model_path = train_fn(cfg)
+                 ^^^^^^^^^^^^^
+  File "/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/train.py", line 121, in train
+    _, train_loader, _ = get_dataloaders(cfg)
+                         ^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/preprocess.py", line 58, in get_dataloaders
+    full_ds = datasets.ImageFolder(data_root, transform=tf)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/_tool/Python/3.11.13/x64/lib/python3.11/site-packages/torchvision/datasets/folder.py", line 328, in __init__
+    super().__init__(
+  File "/home/runner/work/_tool/Python/3.11.13/x64/lib/python3.11/site-packages/torchvision/datasets/folder.py", line 150, in __init__
+    samples = self.make_dataset(
+              ^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/_tool/Python/3.11.13/x64/lib/python3.11/site-packages/torchvision/datasets/folder.py", line 203, in make_dataset
+    return make_dataset(
+           ^^^^^^^^^^^^^
+  File "/home/runner/work/_tool/Python/3.11.13/x64/lib/python3.11/site-packages/torchvision/datasets/folder.py", line 104, in make_dataset
+    raise FileNotFoundError(msg)
+FileNotFoundError: Found no valid file for the classes .git, .github, .logs, .research, config, data, models, src. Supported extensions are: .jpg, .jpeg, .png, .ppm, .bmp, .pgm, .tif, .tiff, .webp
