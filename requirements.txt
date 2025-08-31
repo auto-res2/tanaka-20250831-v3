@@ -1,21 +1,15 @@
-torch>=2.0
+torch
 torchvision
-accelerate
 diffusers
 transformers
+datasets
 peft
-fvcore
 torchmetrics
-torch-fidelity  # required for FID metric
-deepseed; extra == "cpu"   # optional
-pytorch-fid
-open-clip-torch
-decord
-pandas
-numpy
-tqdm
-pillow
-seaborn
+ptflops
 matplotlib
-pyyaml
-wandb
+seaborn
+numpy
+pandas
+tqdm
+einops
+accelerate

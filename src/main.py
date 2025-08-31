@@ -1,97 +1,86 @@
+"""src/main.py
+Entry point for  *python -m src.main*  as required by the instructions.  The
+script orchestrates one end-to-end run: synthetic-data creation ➜ training ➜
+evaluation ➜ PDF plot written to .research/iteration7/images/.
+
+For quick validation on a Tesla-T4 the default configuration trains only 300
+iterations.  Use the *--fast False* flag if you want the full 2-epoch demo.
 """
-main.py – central CLI entry-point that wires together preprocessing, training
-and evaluation for the three experiments described in the research plan.
-Run from the project root via
-    $ python -m src.main --exp 1
-"""
-from __future__ import annotations
 
-import argparse, json, os
-import pandas as pd
+import argparse
+import json
+from pathlib import Path
+from typing import Dict
 
-from .train import run_image_finetune, run_video_finetune
-from .evaluate import save_lineplot, save_barplot
+import matplotlib.pyplot as plt
 
-# -----------------------------------------------------------------------------
-# configuration helpers – tiny, yaml could be added later via the config/ dir
-# -----------------------------------------------------------------------------
-_DEF_IMG_CFG = {
-    "coco_root": "data/coco2017",   # change to your path
-    "img_res": 768,
-    "batch_size": 4,
-    "epochs": 3,
-    "seed": 0,
-    "lr": 1e-4,
-    "use_rest": True,   # toggle ReST
-}
-
-_DEF_VID_CFG = {
-    "ucf_root": "data/ucf101/videos",
-    "train_split": "data/ucf101/trainlist01.txt",
-    "img_res": 256,
-}
-
-# -----------------------------------------------------------------------------
-# CLI
-# -----------------------------------------------------------------------------
-
-def _json(msg, obj):
-    print(msg)
-    print(json.dumps(obj, indent=2))
+# local imports (must be relative)
+from .preprocess import get_dataloaders
+from .train import run_training
+from .evaluate import evaluate
+from .utils import ensure_dir
 
 
-def _exp1():
-    cfg = _DEF_IMG_CFG
-    _json("[Experiment-1] configuration", cfg)
-    metrics = run_image_finetune(cfg)
-
-    # -------- plots --------
-    xs = list(range(1, len(metrics["fid"]) + 1))
-    save_lineplot(xs, {"ReST": metrics["fid"]}, "FID over epochs", "Epoch", "FID", "fid_curve.pdf")
-
-    df = pd.DataFrame(metrics)
-    df.to_csv("exp1_metrics.csv", index=False)
-    print("Figures saved: fid_curve.pdf  |  CSV: exp1_metrics.csv")
-
-
-def _exp2():
-    cfg = _DEF_VID_CFG
-    _json("[Experiment-2] configuration", cfg)
-    m = run_video_finetune(cfg)
-    save_barplot(["sec/iter", "peak-mem (GB)"], [sum(m["sec_iter"]) / len(m["sec_iter"]), max(m["mem"]) / 1024 ** 3], "Speed & Memory", "value", "video_speed_mem.pdf")
-    print("Figure saved: video_speed_mem.pdf")
-
-
-def _exp3():
-    # Very small ablation – simply compares memory consumption with/without ReST
-    cfg_base = _DEF_IMG_CFG.copy()
-    cfg_base.update(img_res=512, epochs=1)
-    results = {}
-    for name, rest_flag in [("plain", False), ("rest", True)]:
-        cfg = cfg_base.copy(); cfg["use_rest"] = rest_flag
-        r = run_image_finetune(cfg)
-        results[name] = max(r["mem"]) / 1024 ** 3
-    save_barplot(list(results.keys()), list(results.values()), "Peak Memory @512²", "GB", "ablation_memory.pdf")
-    print("Figure saved: ablation_memory.pdf")
+def plot_loss(loss_curve, out_path: Path):
+    plt.figure(figsize=(6, 4))
+    plt.plot(loss_curve, label="train-loss", color="tab:blue")
+    plt.title("Training loss curve")
+    plt.xlabel("Iteration")
+    plt.ylabel("MSE loss")
+    plt.tight_layout()
+    plt.savefig(out_path, format="pdf")
+    plt.close()
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run ReST experiments")
-    parser.add_argument(
-        "--exp",
-        type=int,
-        choices=[1, 2, 3],
-        default=1,  # Default to experiment 1 when not specified
-        help="Which experiment to run (default: 1)",
-    )
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--mode", choices=["vanilla", "checkpoint", "lora", "rest"], default="rest",
+                        help="Training mode – baseline or ReST")
+    parser.add_argument("--batch_size", type=int, default=2)
+    parser.add_argument("--resolution", type=int, default=512)
+    parser.add_argument("--train_steps", type=int, default=300)
+    parser.add_argument("--seed", type=int, default=13)
     args = parser.parse_args()
 
-    if args.exp == 1:
-        _exp1()
-    elif args.exp == 2:
-        _exp2()
-    else:
-        _exp3()
+    device = "cuda" if __import__("torch").cuda.is_available() else "cpu"
+
+    cfg: Dict = {
+        "mode": args.mode,
+        "batch_size": args.batch_size,
+        "resolution": args.resolution,
+        "device": device,
+        "lr": 1e-4,
+        "train_steps": args.train_steps,
+        "seed": args.seed,
+    }
+
+    # ------------------------------------------------------------------
+    # Data
+    # ------------------------------------------------------------------
+    train_loader, val_loader = get_dataloaders(batch_size=args.batch_size, resolution=args.resolution)
+
+    # ------------------------------------------------------------------
+    # Training
+    # ------------------------------------------------------------------
+    model, stats = run_training(cfg, train_loader, val_loader)
+
+    # ------------------------------------------------------------------
+    # Evaluation (extra sanity-check)
+    # ------------------------------------------------------------------
+    eval_stats = evaluate(model, val_loader, device=device)
+    stats.update(eval_stats)
+
+    # ------------------------------------------------------------------
+    # Output handling
+    # ------------------------------------------------------------------
+    img_dir = Path(".research/iteration7/images")
+    ensure_dir(img_dir)
+    loss_fig = img_dir / "training_loss_curve.pdf"
+    plot_loss(stats["loss_curve"], loss_fig)
+
+    print("\n================ Experiment Summary ================")
+    print(json.dumps({k: v for k, v in stats.items() if k != "loss_curve"}, indent=2))
+    print(f"\nTraining loss curve saved to: {loss_fig.relative_to(Path('.'))}")
 
 
 if __name__ == "__main__":

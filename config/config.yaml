@@ -1,8 +1,6 @@
-# Default training configuration for Experiment-1 (high-resolution images)
-img_res: 768
-batch_size: 4
-epochs: 3
+# config/default.yaml
+# Configuration file used by src.main if additional hyper-parameters are
+# required in future iterations.  Currently all options are provided through
+# CLI so this YAML is intentionally minimal.
+train_steps: 300
 lr: 1e-4
-coco_root: data/coco2017
-use_rest: true
-seed: 0
