@@ -21,7 +21,8 @@ import pandas as pd
 import seaborn as sns
 import torch
 import torch.nn.functional as F
-from torch.cuda.amp import autocast, GradScaler
+from torch.cuda.amp import GradScaler
+from torch import autocast  # use generic autocast with device_type="cuda"
 
 from diffusers import DDPMScheduler, UNet2DConditionModel
 
@@ -90,7 +91,8 @@ def _diffusion_loss(
 
     encoder_hidden_states = _null_encoder(images.size(0), device, noisy.dtype)
 
-    with autocast(device_type="cuda"):
+    # use torch.autocast which supports the device_type kwarg
+    with autocast("cuda", dtype=torch.float16):
         noise_pred = unet(noisy, timesteps, encoder_hidden_states=encoder_hidden_states).sample
         loss = F.mse_loss(noise_pred.float(), noise.float())
     return loss
@@ -170,7 +172,7 @@ def train_model(args) -> Tuple[Path, Path]:
     df.to_csv(csv_path, index=False)
 
     # plot loss curve ---------------------------------------------------
-    fig_dir = Path(".research/iteration8/images"); fig_dir.mkdir(parents=True, exist_ok=True)
+    fig_dir = Path(".research/iteration9/images"); fig_dir.mkdir(parents=True, exist_ok=True)
     fig_path = fig_dir / f"loss_curve_{args.model}.pdf"
     plt.figure(figsize=(6,4))
     sns.lineplot(data=df, x="step", y="loss")

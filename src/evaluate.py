@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import torch
-from torch.cuda.amp import autocast
+from torch import autocast  # switched to generic autocast
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 
@@ -36,7 +36,7 @@ def _simple_quality_score(unet: torch.nn.Module, device: torch.device) -> float:
     for t in scheduler.timesteps:
         t_batch = torch.tensor([t] * noise.size(0), device=device)
         encoder_hidden_states = _null_encoder(noise.size(0), device, noise.dtype)
-        with autocast(device_type="cuda"):
+        with autocast("cuda", dtype=torch.float16):
             noise_pred = unet(noise, t_batch, encoder_hidden_states=encoder_hidden_states).sample
         noise = scheduler.step(noise_pred, t, noise).prev_sample
     score = -noise.float().pow(2).mean().item()
@@ -59,7 +59,7 @@ def evaluate_model(args, model_ckpt: Path) -> Tuple[Path, dict]:
     pd.DataFrame([{"quality": score, "peak_mem": mem}]).to_csv(eval_path, index=False)
 
     # bar figure --------------------------------------------------------
-    fig_dir = Path(".research/iteration8/images"); fig_dir.mkdir(parents=True, exist_ok=True)
+    fig_dir = Path(".research/iteration9/images"); fig_dir.mkdir(parents=True, exist_ok=True)
     fig_path = fig_dir / f"eval_{args.model}.pdf"
     plt.figure(figsize=(2.5,3))
     sns.barplot(x=[""], y=[score], palette=["#4C72B0"])
