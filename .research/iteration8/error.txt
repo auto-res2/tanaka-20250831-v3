@@ -1,0 +1,22 @@
+/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/train.py:127: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler = GradScaler()
+/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/train.py:93: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with autocast(device_type="cuda"):
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/main.py", line 57, in <module>
+    main()
+  File "/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/main.py", line 43, in main
+    csv_path, loss_fig = train_model(args)
+                         ^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/train.py", line 143, in train_model
+    loss = _diffusion_loss(unet, scheduler, batch, device)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/train.py", line 93, in _diffusion_loss
+    with autocast(device_type="cuda"):
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/_tool/Python/3.11.13/x64/lib/python3.11/site-packages/typing_extensions.py", line 3004, in wrapper
+    return arg(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^
+TypeError: autocast.__init__() got an unexpected keyword argument 'device_type'
