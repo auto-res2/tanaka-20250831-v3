@@ -1,0 +1,10 @@
+{
+  "research_topic": "diffusion modelのメモリを抑えた学習方法",
+  "queries": [
+    "memory-efficient diffusion",
+    "diffusion model memory optimization",
+    "diffusion model checkpointing",
+    "attention slicing diffusion",
+    "low-memory diffusion training"
+  ]
+}
