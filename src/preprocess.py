@@ -43,7 +43,7 @@ def build_train_loader(batch_size: int = 2) -> DataLoader:
             transforms.Resize(64, interpolation=transforms.InterpolationMode.BICUBIC),
             transforms.CenterCrop(64),
             transforms.ToTensor(),
-            transforms.Normalize([0.5], [0.5]),
+            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
         ]
     )
     dataset = datasets.FakeData(size=4_000, image_size=(3, 64, 64), transform=transform)

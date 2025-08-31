@@ -57,6 +57,21 @@ def _get_unet(model_name: str = "rechu") -> torch.nn.Module:
     return unet
 
 
+def _null_encoder(batch: int, device: torch.device, dtype: torch.dtype = torch.float16) -> torch.Tensor:
+    """Creates an all-zero encoder_hidden_states tensor expected by the SD UNet."""
+    return torch.zeros(batch, 77, 768, device=device, dtype=dtype)
+
+
+def _ensure_four_channels(x: torch.Tensor) -> torch.Tensor:
+    """Pads input tensor to 4 channels as required by the SD UNet."""
+    if x.shape[1] == 4:
+        return x
+    if x.shape[1] == 3:
+        pad = torch.zeros_like(x[:, :1])
+        return torch.cat([x, pad], dim=1)
+    raise ValueError("Input to UNet must have 3 or 4 channels.")
+
+
 def _diffusion_loss(
     unet: torch.nn.Module,
     scheduler: DDPMScheduler,
@@ -64,16 +79,19 @@ def _diffusion_loss(
     device: torch.device,
 ) -> torch.Tensor:
     """Standard MSE diffusion objective (simplified)."""
-    images, _ = batch  # we use FakeData so there is no text conditioning
+    images, _ = batch  # FakeData returns (img, label)
     images = images.to(device)
+    images = _ensure_four_channels(images)
     timesteps = torch.randint(
         0, scheduler.config.num_train_timesteps, (images.size(0),), device=device
     )
     noise = torch.randn_like(images)
     noisy = scheduler.add_noise(images, noise, timesteps)
 
-    with autocast():
-        noise_pred = unet(noisy, timesteps).sample
+    encoder_hidden_states = _null_encoder(images.size(0), device, noisy.dtype)
+
+    with autocast(device_type="cuda"):
+        noise_pred = unet(noisy, timesteps, encoder_hidden_states=encoder_hidden_states).sample
         loss = F.mse_loss(noise_pred.float(), noise.float())
     return loss
 
@@ -152,10 +170,10 @@ def train_model(args) -> Tuple[Path, Path]:
     df.to_csv(csv_path, index=False)
 
     # plot loss curve ---------------------------------------------------
-    fig_dir = Path(".research/iteration7/images"); fig_dir.mkdir(parents=True, exist_ok=True)
+    fig_dir = Path(".research/iteration8/images"); fig_dir.mkdir(parents=True, exist_ok=True)
     fig_path = fig_dir / f"loss_curve_{args.model}.pdf"
     plt.figure(figsize=(6,4))
-    sns.lineplot(df, x="step", y="loss")
+    sns.lineplot(data=df, x="step", y="loss")
     plt.title(f"Training loss – {args.model}")
     plt.tight_layout()
     plt.savefig(fig_path, dpi=300)
