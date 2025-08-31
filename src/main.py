@@ -1,71 +1,56 @@
-"""
-main.py – entry-point (`python -m src.main`).
-Orchestrates preprocessing ➜ model building ➜ training ➜ evaluation.
-Keeping things minimal yet extensible.
+"""src/main.py
+Main entry point.  Execute experiments via
+    python -m src.main --model rechu   # or baseline
+All paths/figures are stored inside the repository structure demanded by the
+assignment.  The script is intentionally *very* light so that CI pipelines or
+course VMs with a single Tesla T4 can finish quickly.
 """
 from __future__ import annotations
 
 import argparse
 from pathlib import Path
 
-import torch
-from accelerate import Accelerator
-from diffusers import UNet2DConditionModel  # kept for potential future use
+from .preprocess import set_seed
+from .train import train_model
+from .evaluate import evaluate_model
 
-from .evaluate import evaluate
-from .preprocess import get_dataloaders
-from .train import Trainer
-from .utils import build_unet, print_experiment_header
 
-# --------------------------------------------------------------------------------------
-#                                   CLI
-# --------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+# CLI ------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 
-def parse_args():
-    p = argparse.ArgumentParser("ReChuNet research prototype")
-    p.add_argument("--dataset", choices=["cifar10", "imagenet"], default="cifar10")
-    p.add_argument("--variant", choices=["baseline", "rechunet_rev", "rechunet_full"], default="baseline")
-    p.add_argument("--batch", type=int, default=8)
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(description="ReChuNet – tiny experimental runner")
+    p.add_argument("--model", default="rechu", choices=["rechu", "baseline"], help="which UNet variant to use")
+    p.add_argument("--batch_size", type=int, default=2)
+    p.add_argument("--max_steps", type=int, default=200, help="number of update steps (very small by default)")
+    p.add_argument("--log_every", type=int, default=20)
     p.add_argument("--lr", type=float, default=1e-4)
-    p.add_argument("--steps", type=int, default=2_000)
-    p.add_argument("--seed", type=int, default=0)
-    p.add_argument("--grad_accum", type=int, default=1)
-    return p.parse_args()
+    p.add_argument("--seed", type=int, default=2024)
+    return p
 
 
-# --------------------------------------------------------------------------------------
-#                                   MAIN
-# --------------------------------------------------------------------------------------
+# ----------------------------------------------------------------------------
+# main -----------------------------------------------------------------------
+# ----------------------------------------------------------------------------
 
 def main():
-    args = parse_args()
+    args = build_parser().parse_args()
 
-    print_experiment_header(
-        "ReChuNet – memory-efficient diffusion U-Net", f"variant = {args.variant}")
+    set_seed(args.seed)
 
-    # ---------- data ----------
-    train_loader, val_loader = get_dataloaders(args.dataset, batch=args.batch)
+    print("==========  TRAIN  ==========")
+    csv_path, loss_fig = train_model(args)
 
-    # ---------- model ----------
-    model = build_unet(args.variant, chunk_size=16)
+    print("==========  EVAL   ==========")
+    eval_fig, metrics = evaluate_model(args, model_ckpt=Path("models") / f"unet_{args.model}.pt")
 
-    # ---------- train ----------
-    accelerator = Accelerator(gradient_accumulation_steps=args.grad_accum, mixed_precision="fp16")
-    trainer = Trainer(
-        accelerator=accelerator,
-        model=model,
-        dataloader=train_loader,
-        lr=args.lr,
-        gradient_accumulation_steps=args.grad_accum,
-        num_train_steps=args.steps,
-        output_dir="outputs",
-        seed=args.seed,
-        log_every=50,
-    )
-    trainer.train()
-
-    # ---------- evaluate ----------
-    evaluate(model, val_loader, accelerator, max_batches=50, out_dir="outputs")
+    # final stdout -----------------------------------------------------------
+    print("\n==========  SUMMARY  ==========")
+    print(f"train log : {csv_path}")
+    print(f"loss plot : {loss_fig}")
+    print(f"eval plot : {eval_fig}")
+    print(f"metrics   : {metrics}")
 
 
 if __name__ == "__main__":

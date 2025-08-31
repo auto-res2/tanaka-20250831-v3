@@ -1,81 +1,51 @@
-"""
-preprocess.py – very small wrappers around torchvision datasets so that the
-main training / evaluation code remains clean. If ImageNet or LAION are not
-available locally we fall back to a dummy CIFAR-10 subset; this allows the
-code to run *out-of-the-box* on the execution platform.
-All images are re-scaled to (256, 256) and mapped to (-1, 1).
+"""src/preprocess.py
+Data & utility helpers used by train / evaluate.
 """
 from __future__ import annotations
 
-import os
-from pathlib import Path
-from typing import Literal
+import random
+from typing import Tuple
 
 import torch
-import torchvision
-import torchvision.transforms as T
-
-__all__ = [
-    "get_dataloaders",
-]
+from torch.utils.data import DataLoader
+from torchvision import datasets, transforms
 
 
-class _DictWrapper(torch.utils.data.Dataset):
-    """Wraps any torchvision-style dataset that returns (img, label) into a dict so
-    that downstream code can stay clean (expects {"image": …, "label": …})."""
+# ----------------------------------------------------------------------------
+# reproducibility ------------------------------------------------------------
+# ----------------------------------------------------------------------------
 
-    def __init__(self, ds: torch.utils.data.Dataset):
-        super().__init__()
-        self.ds = ds
-
-    def __len__(self):
-        return len(self.ds)
-
-    def __getitem__(self, idx):
-        img, label = self.ds[idx]
-        return {"image": img, "label": torch.tensor(label, dtype=torch.long)}
+def set_seed(seed: int = 2024):
+    random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
 
 
-def _cifar10_loader(batch: int, workers: int = 4):
-    tf = T.Compose(
+# ----------------------------------------------------------------------------
+# memory helpers -------------------------------------------------------------
+# ----------------------------------------------------------------------------
+
+def gpu_mem_mb() -> float:
+    """Returns max *allocated* memory since program start (in MB)."""
+    if torch.cuda.is_available():
+        return torch.cuda.max_memory_allocated() / 1024 ** 2
+    return 0.0
+
+
+# ----------------------------------------------------------------------------
+# dataloaders ----------------------------------------------------------------
+# ----------------------------------------------------------------------------
+
+def build_train_loader(batch_size: int = 2) -> DataLoader:
+    """Very small FakeData loader so experiment becomes self-contained."""
+    transform = transforms.Compose(
         [
-            T.Resize(256),
-            T.CenterCrop(256),
-            T.RandomHorizontalFlip(),
-            T.ToTensor(),
-            T.Lambda(lambda x: x * 2.0 - 1.0),
+            transforms.Resize(64, interpolation=transforms.InterpolationMode.BICUBIC),
+            transforms.CenterCrop(64),
+            transforms.ToTensor(),
+            transforms.Normalize([0.5], [0.5]),
         ]
     )
-    train = _DictWrapper(torchvision.datasets.CIFAR10(root="data", train=True, download=True, transform=tf))
-    test = _DictWrapper(torchvision.datasets.CIFAR10(root="data", train=False, download=True, transform=tf))
-    dl_train = torch.utils.data.DataLoader(train, batch_size=batch, shuffle=True, num_workers=workers, pin_memory=True)
-    dl_test = torch.utils.data.DataLoader(test, batch_size=batch, shuffle=False, num_workers=workers, pin_memory=True)
-    return dl_train, dl_test
-
-
-def get_dataloaders(dataset: Literal["cifar10", "imagenet"], batch: int = 8):
-    """Factory that returns (train_loader, val_loader). For brevity only two datasets
-    are wired-in, but others can be added trivially.
-    """
-    if dataset == "cifar10":
-        return _cifar10_loader(batch)
-    elif dataset == "imagenet":
-        if not (Path("data/imagenet/train").exists() and Path("data/imagenet/val").exists()):
-            print("[Preprocess] ImageNet directory not found – falling back to CIFAR-10.")
-            return _cifar10_loader(batch)
-        tf = T.Compose(
-            [
-                T.Resize(286),
-                T.RandomCrop(256),
-                T.RandomHorizontalFlip(),
-                T.ToTensor(),
-                T.Lambda(lambda x: x * 2.0 - 1.0),
-            ]
-        )
-        train_ds = _DictWrapper(torchvision.datasets.ImageFolder("data/imagenet/train", transform=tf))
-        val_ds = _DictWrapper(torchvision.datasets.ImageFolder("data/imagenet/val", transform=tf))
-        dl_train = torch.utils.data.DataLoader(train_ds, batch_size=batch, shuffle=True, num_workers=8, pin_memory=True)
-        dl_val = torch.utils.data.DataLoader(val_ds, batch_size=batch, shuffle=False, num_workers=4, pin_memory=True)
-        return dl_train, dl_val
-    else:
-        raise ValueError(dataset)
+    dataset = datasets.FakeData(size=4_000, image_size=(3, 64, 64), transform=transform)
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=2, pin_memory=True)
+    return loader
