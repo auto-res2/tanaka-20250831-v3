@@ -1,86 +1,54 @@
-"""src/main.py
-Entry point for  *python -m src.main*  as required by the instructions.  The
-script orchestrates one end-to-end run: synthetic-data creation ➜ training ➜
-evaluation ➜ PDF plot written to .research/iteration10/images/.
-
-For quick validation on a Tesla-T4 the default configuration trains only 300
-iterations.  Use the *--fast False* flag if you want the full 2-epoch demo.
 """
+main.py – experiment entry-point (python -m src.main).
+It wires together preprocessing, model creation, training,
+visualisation and (optional) evaluation.
+"""
+from __future__ import annotations
+import argparse, json, pathlib, torch, random, os
 
-import argparse
-import json
-from pathlib import Path
-from typing import Dict
-
-import matplotlib.pyplot as plt
-
-# local imports (must be relative)
 from .preprocess import get_dataloaders
-from .train import run_training, ensure_dir
-from .evaluate import evaluate
+from .train import build_model, train, save_plots
+from .evaluate import evaluate as eval_fn
 
 
-def plot_loss(loss_curve, out_path: Path):
-    plt.figure(figsize=(6, 4))
-    plt.plot(loss_curve, label="train-loss", color="tab:blue")
-    plt.title("Training loss curve")
-    plt.xlabel("Iteration")
-    plt.ylabel("MSE loss")
-    plt.tight_layout()
-    plt.savefig(out_path, format="pdf")
-    plt.close()
+def set_seed(seed: int):
+    random.seed(seed); torch.manual_seed(seed); torch.cuda.manual_seed_all(seed)
+
+
+def run(cfg):
+    # Data
+    train_loader, _ = get_dataloaders(batch_size=cfg["batch"])
+    # Model
+    model = build_model(cfg)
+    # Training
+    stats = train(model, train_loader, cfg)
+    # Save artefacts
+    models_dir = pathlib.Path("models"); models_dir.mkdir(exist_ok=True)
+    torch.save(model.state_dict(), models_dir / f"{cfg['run_name']}.pt")
+    save_plots(stats, cfg['run_name'])
+    # Persist config for evaluation script
+    pathlib.Path("config").mkdir(exist_ok=True)
+    with open(f"config/{cfg['run_name']}.json", "w") as f:
+        json.dump(cfg, f, indent=2)
+
+
+def make_argparser():
+    p = argparse.ArgumentParser()
+    p.add_argument("--model", choices=["baseline", "reversible"], default="baseline")
+    p.add_argument("--epochs", type=int, default=1)
+    p.add_argument("--batch", type=int, default=128)
+    p.add_argument("--channels", type=int, default=64)
+    p.add_argument("--lr", type=float, default=1e-3)
+    p.add_argument("--seed", type=int, default=0)
+    return p
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--mode", choices=["vanilla", "checkpoint", "lora", "rest"], default="rest",
-                        help="Training mode – baseline or ReST")
-    parser.add_argument("--batch_size", type=int, default=2)
-    parser.add_argument("--resolution", type=int, default=512)
-    parser.add_argument("--train_steps", type=int, default=300)
-    parser.add_argument("--seed", type=int, default=13)
-    args = parser.parse_args()
-
-    device = "cuda" if __import__("torch").cuda.is_available() else "cpu"
-
-    cfg: Dict = {
-        "mode": args.mode,
-        "batch_size": args.batch_size,
-        "resolution": args.resolution,
-        "device": device,
-        "lr": 1e-4,
-        "train_steps": args.train_steps,
-        "seed": args.seed,
-    }
-
-    # ------------------------------------------------------------------
-    # Data
-    # ------------------------------------------------------------------
-    train_loader, val_loader = get_dataloaders(batch_size=args.batch_size, resolution=args.resolution)
-
-    # ------------------------------------------------------------------
-    # Training
-    # ------------------------------------------------------------------
-    model, stats = run_training(cfg, train_loader, val_loader)
-
-    # ------------------------------------------------------------------
-    # Evaluation (extra sanity-check)
-    # ------------------------------------------------------------------
-    eval_stats = evaluate(model, val_loader, device=device)
-    stats.update(eval_stats)
-
-    # ------------------------------------------------------------------
-    # Output handling
-    # ------------------------------------------------------------------
-    img_dir = Path(".research/iteration10/images")
-    ensure_dir(img_dir)
-    loss_fig = img_dir / "training_loss_curve.pdf"
-    plot_loss(stats["loss_curve"], loss_fig)
-
-    print("\n================ Experiment Summary ================")
-    print(json.dumps({k: v for k, v in stats.items() if k != "loss_curve"}, indent=2))
-    print(f"\nTraining loss curve saved to: {loss_fig.relative_to(Path('.'))}")
-
+    args = make_argparser().parse_args()
+    set_seed(args.seed)
+    cfg = vars(args)
+    cfg["run_name"] = f"{args.model}_c{args.channels}_s{args.seed}"
+    run(cfg)
 
 if __name__ == "__main__":
     main()

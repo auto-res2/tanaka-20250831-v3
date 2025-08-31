@@ -1,38 +1,34 @@
-# original content preserved – no changes needed
-"""src/evaluate.py
-Simple evaluation script – only computes a validation MSE on the noisy-latent
-prediction task because full FID/FVD computation would require heavy VAE &
-CLIP pipelines not suitable for a demo on a 16 GB Tesla-T4.
 """
-
+evaluate.py – very small evaluation that computes reconstruction
+loss (MSE) on the validation set and prints it.  It is deliberately
+light-weight to respect VRAM limits.
+"""
 from __future__ import annotations
-
-from typing import Dict, List
-
-import torch
-import torch.nn as nn
-from torch.cuda.amp import autocast
+import torch, pathlib, json
 from torch.utils.data import DataLoader
-from tqdm.auto import tqdm
+import torch.nn.functional as F
+from torchvision import datasets, transforms
 
-from diffusers import DDPMScheduler
+from .train import build_model
 
 
-@torch.no_grad()
-def evaluate(model: nn.Module, dataloader: DataLoader, device: str = "cuda") -> Dict:
+def evaluate(cfg_path: str):
+    cfg = json.load(open(cfg_path))
+    # Data
+    test_tf = transforms.Compose([
+        transforms.ToTensor(),
+    ])
+    test_ds = datasets.CIFAR10(root="data", train=False, download=True, transform=test_tf)
+    loader = DataLoader(test_ds, batch_size=128, shuffle=False, num_workers=2, pin_memory=True)
+    # Model
+    model = build_model(cfg)
+    model.load_state_dict(torch.load(pathlib.Path("models")/f"{cfg['run_name']}.pt"))
     model.eval()
-    scheduler = DDPMScheduler(num_train_timesteps=1000)
-    losses: List[float] = []
-    for latents, cond in tqdm(dataloader, desc="eval", ncols=80):
-        latents = latents.to(device)
-        cond = cond.to(device)
-        noise = torch.randn_like(latents)
-        tsteps = torch.randint(0, 1000, (latents.size(0),), device=device).long()
-        noisy_latents = scheduler.add_noise(latents, noise, tsteps)
-        with autocast(dtype=torch.bfloat16, enabled=torch.cuda.is_available()):
-            out = model(noisy_latents, tsteps, encoder_hidden_states=cond)
-            loss = nn.functional.mse_loss(out.sample.float(), noise.float())
-            losses.append(loss.item())
-    return {
-        "mse": float(sum(losses) / len(losses))
-    }
+    mse_total, n = 0.0, 0
+    with torch.no_grad(), torch.cuda.amp.autocast(dtype=torch.float16):
+        for x,_ in loader:
+            x = x.to("cuda", dtype=torch.float16)
+            out = model(x)
+            mse_total += F.mse_loss(out, x, reduction="sum").item()
+            n += x.numel()
+    print(f"Validation MSE: {mse_total/n:.6f}")

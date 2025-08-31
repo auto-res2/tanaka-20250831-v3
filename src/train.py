@@ -1,162 +1,155 @@
-"""src/train.py
-Training utilities – contains a very small toy denoising network plus the
-run_training() helper that is used by src.main.  The implementation is *not*
-a full Stable-Diffusion UNet; it is a light-weight convolutional network that
-is sufficient for demonstrating the training / evaluation / plotting pipeline
-inside the limited CI environment.
+"""
+train.py – model construction, training loop, memory-profiling & visualisation
+All heavy-lifting lives here so that src.main can orchestrate the whole
+pipeline with only a few lines of code.
 """
 from __future__ import annotations
-
-import itertools
-import random
-from dataclasses import dataclass
-from typing import Dict, List
+import os, time, math, random, pathlib, json
+from typing import Dict, List, Tuple, Optional
 
 import torch
 import torch.nn as nn
-from torch.cuda.amp import GradScaler, autocast
-from tqdm.auto import tqdm
+import torch.nn.functional as F
+from torch.cuda.amp import autocast, GradScaler
+from torch.utils.data import DataLoader
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-from diffusers import DDPMScheduler
+# -------------------------------------------------------
+#  Reversible blocks – very light generic implementation
+#  (additive coupling – RevNet style)
+# -------------------------------------------------------
 
-# We intentionally *duplicate* the simple helper functions that were already
-# present in the previous revision so that existing imports from other modules
-# (e.g. ``src.utils``) continue to work after a new, dedicated ``utils.py``
-# file has been introduced.
-__all__ = [
-    "set_seed",
-    "measure_peak_mem_mb",
-    "reset_peak_mem",
-    "ensure_dir",
-    "run_training",
-]
+class _RevFn(torch.autograd.Function):
+    """Low-level autograd function that rebuilds activations in backward."""
+    @staticmethod
+    def forward(ctx, x, f, g):
+        x1, x2 = torch.chunk(x, 2, dim=1)
+        with torch.enable_grad():
+            x2_detached = x2.detach().requires_grad_()
+            y1 = x1 + f(x2_detached)
+            y2 = x2 + g(y1)
+        ctx.save_for_backward(y1.detach(), y2.detach())
+        ctx.f, ctx.g = f, g
+        return torch.cat([y1, y2], dim=1)
 
-# -----------------------------------------------------------------------------
-# Reproducibility helpers (kept for backward-compatibility)
-# -----------------------------------------------------------------------------
+    @staticmethod
+    def backward(ctx, dy):
+        y1, y2 = ctx.saved_tensors
+        f, g = ctx.f, ctx.g
+        dy1, dy2 = torch.chunk(dy, 2, dim=1)
+        with torch.enable_grad():
+            y1.requires_grad = True
+            gy = g(y1)
+            torch.autograd.backward(gy, dy2)
+            dx2 = y1.grad.clone()
+            y1.grad.zero_()
+            torch.autograd.backward(y1, dy1 + dx2)
+            dx1 = y1.grad.clone()
+        return torch.cat([dx1, dx2], dim=1), None, None
 
+class RevBlock(nn.Module):
+    """Wrapper that turns (F,G) into a reversible block."""
+    def __init__(self, in_channels: int):
+        super().__init__()
+        mid = in_channels // 2
+        self.f = nn.Sequential(
+            nn.Conv2d(mid, mid, 3, padding=1), nn.BatchNorm2d(mid), nn.GELU(),
+            nn.Conv2d(mid, mid, 3, padding=1))
+        self.g = nn.Sequential(
+            nn.Conv2d(mid, mid, 3, padding=1), nn.BatchNorm2d(mid), nn.GELU(),
+            nn.Conv2d(mid, mid, 3, padding=1))
 
-def set_seed(seed: int) -> None:  # noqa: D401
-    random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
+    def forward(self, x):
+        return _RevFn.apply(x, self.f, self.g)
 
+# -------------------------------------------------------
+#  Two tiny CNNs: baseline vs reversible (same depth)
+# -------------------------------------------------------
 
-# -----------------------------------------------------------------------------
-# Memory helpers (kept for backward-compatibility)
-# -----------------------------------------------------------------------------
-
-
-def measure_peak_mem_mb(device: str | torch.device | None = None) -> float:  # noqa: D401
-    if torch.cuda.is_available():
-        dev = torch.device(device) if device is not None else torch.device("cuda")
-        return float(torch.cuda.max_memory_allocated(dev) / 1e6)
-    return 0.0
-
-
-def reset_peak_mem(device: str | torch.device | None = None) -> None:  # noqa: D401
-    if torch.cuda.is_available():
-        dev = torch.device(device) if device is not None else torch.device("cuda")
-        torch.cuda.reset_peak_memory_stats(dev)
-
-
-# -----------------------------------------------------------------------------
-# File-system helpers (kept for backward-compatibility)
-# -----------------------------------------------------------------------------
-
-
-def ensure_dir(path):  # noqa: D401 – inline minimal helper
-    from pathlib import Path
-
-    p = Path(path)
-    if not p.exists():
-        p.mkdir(parents=True, exist_ok=True)
-    return p
-
-
-# -----------------------------------------------------------------------------
-# Tiny convolutional model
-# -----------------------------------------------------------------------------
-
-
-class _SimpleDenoiser(nn.Module):
-    """A *tiny* UNet-like model that predicts the added noise.
-
-    The network purposefully keeps the parameter count small so that unit tests
-    can finish quickly on the CI GPU.  It completely ignores the textual
-    conditioning and the diffusion time-step – both are only accepted so that
-    the call signature matches that of *diffusers.UNet2DConditionModel*.
-    """
-
-    def __init__(self, in_channels: int = 4, hidden: int = 32):
+class TinyCNN(nn.Module):
+    def __init__(self, channels: int = 64):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Conv2d(in_channels, hidden, 3, padding=1),
-            nn.SiLU(),
-            nn.Conv2d(hidden, hidden, 3, padding=1),
-            nn.SiLU(),
-            nn.Conv2d(hidden, in_channels, 3, padding=1),
-        )
+            nn.Conv2d(3, channels, 3, padding=1), nn.ReLU(),
+            nn.Conv2d(channels, channels, 3, padding=1), nn.ReLU(),
+            nn.Conv2d(channels, 3, 3, padding=1))
 
-    def forward(self, x, timesteps=None, encoder_hidden_states=None):  # noqa: D401
-        return _ModelOutput(sample=self.net(x))
+    def forward(self, x):
+        return self.net(x)
 
+class TinyRevCNN(nn.Module):
+    def __init__(self, channels: int = 64):
+        super().__init__()
+        assert channels % 2 == 0, "channels must be divisible by 2 for RevNet"
+        blocks = []
+        blocks.append(nn.Conv2d(3, channels, 3, padding=1))
+        for _ in range(4):
+            blocks.append(RevBlock(channels))
+        blocks.append(nn.Conv2d(channels, 3, 3, padding=1))
+        self.net = nn.Sequential(*blocks)
 
-@dataclass
-class _ModelOutput:
-    sample: torch.Tensor
+    def forward(self, x):
+        return self.net(x)
 
+# -------------------------------------------------------
+#  Helper to build model from cfg
+# -------------------------------------------------------
 
-# -----------------------------------------------------------------------------
-# Training entry-point
-# -----------------------------------------------------------------------------
+def build_model(cfg: Dict) -> nn.Module:
+    if cfg["model"] == "baseline":
+        return TinyCNN(cfg["channels"]).to("cuda")
+    if cfg["model"] == "reversible":
+        return TinyRevCNN(cfg["channels"]).to("cuda")
+    raise ValueError(f"unknown model {cfg['model']}")
 
+# -------------------------------------------------------
+#  Training loop – returns statistics
+# -------------------------------------------------------
 
-def run_training(cfg: Dict, train_loader, val_loader):
-    """Runs a very small training loop and returns the model plus statistics."""
-
-    device = cfg.get("device", "cpu")
-    set_seed(cfg.get("seed", 42))
-
-    model = _SimpleDenoiser().to(device)
-    optim = torch.optim.AdamW(model.parameters(), lr=cfg.get("lr", 1e-4))
-    scheduler = DDPMScheduler(num_train_timesteps=1000)
-
-    scaler = GradScaler(enabled=torch.cuda.is_available())
-    loss_curve: List[float] = []
-
-    # ------------------------------------------------------------------
-    # Iterate over the *loader* indefinitely until *train_steps* is met.
-    # ------------------------------------------------------------------
-    train_iter = itertools.cycle(train_loader)
-    pbar = tqdm(range(cfg["train_steps"]), desc="train", ncols=80)
-
+def train(model: nn.Module, loader: DataLoader, cfg: Dict) -> Dict[str, List[float]]:
     model.train()
-    for _ in pbar:
-        latents, cond = next(train_iter)
-        latents = latents.to(device)
-        # The dummy conditioning is ignored by the tiny model, but we still
-        # send it to the correct device to avoid potential device mismatch.
-        cond = cond.to(device)
+    optimiser = torch.optim.AdamW(model.parameters(), lr=cfg["lr"])
+    scaler = GradScaler()
 
-        noise = torch.randn_like(latents)
-        tsteps = torch.randint(0, 1000, (latents.size(0),), device=device).long()
-        noisy_latents = scheduler.add_noise(latents, noise, tsteps)
+    mem, losses = [], []
+    for epoch in range(cfg["epochs"]):
+        for batch, (x, _) in enumerate(loader):
+            x = x.to("cuda", dtype=torch.float16)
+            torch.cuda.reset_peak_memory_stats()
+            with autocast(dtype=torch.float16):
+                out = model(x)
+                loss = F.mse_loss(out, x)
+            scaler.scale(loss).backward()
+            scaler.step(optimiser)
+            scaler.update()
+            optimiser.zero_grad(set_to_none=True)
+            losses.append(loss.item())
+            mem.append(torch.cuda.max_memory_allocated() / 1e6)  # MB
+    return {"loss": losses, "mem": mem}
 
-        optim.zero_grad(set_to_none=True)
-        with autocast(dtype=torch.bfloat16, enabled=torch.cuda.is_available()):
-            out = model(noisy_latents, tsteps, encoder_hidden_states=cond)
-            loss = nn.functional.mse_loss(out.sample, noise)
+# -------------------------------------------------------
+#  Plot helpers – saved under .research/iteration11/images
+# -------------------------------------------------------
 
-        scaler.scale(loss).backward()
-        scaler.step(optim)
-        scaler.update()
+def _make_img_dir():
+    img_dir = pathlib.Path(".research/iteration11/images")
+    img_dir.mkdir(parents=True, exist_ok=True)
+    return img_dir
 
-        loss_curve.append(loss.item())
-        pbar.set_postfix(loss=f"{loss.item():.4f}")
-
-    stats = {
-        "final_loss": float(loss_curve[-1]),
-        "loss_curve": loss_curve,
-    }
-    return model, stats
+def save_plots(stats: Dict[str, List[float]], tag: str):
+    img_dir = _make_img_dir()
+    sns.set_style("whitegrid")
+    # 1) Loss curve
+    plt.figure(figsize=(6,4))
+    plt.title(f"Training loss – {tag}")
+    plt.plot(stats["loss"]) ; plt.xlabel("step") ; plt.ylabel("MSE loss")
+    plt.savefig(img_dir / f"loss_{tag}.pdf", bbox_inches="tight")
+    # 2) Memory curve
+    plt.figure(figsize=(6,4))
+    plt.title(f"Peak memory – {tag}")
+    plt.plot(stats["mem"]) ; plt.xlabel("step") ; plt.ylabel("MB")
+    plt.savefig(img_dir / f"memory_{tag}.pdf", bbox_inches="tight")
+    plt.close("all")

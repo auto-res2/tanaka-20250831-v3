@@ -1,6 +1,8 @@
-# config/default.yaml
-# Configuration file used by src.main if additional hyper-parameters are
-# required in future iterations.  Currently all options are provided through
-# CLI so this YAML is intentionally minimal.
-train_steps: 300
-lr: 1e-4
+# Default hyper-parameters for a quick demo run.
+# You can override any of these from the CLI.
+model: reversible
+channels: 64
+batch: 128
+epochs: 1
+lr: 0.001
+seed: 0
