@@ -100,6 +100,7 @@ class TinyRevCNN(nn.Module):
 #  Helper to build model from cfg
 # -------------------------------------------------------
 
+
 def build_model(cfg: Dict) -> nn.Module:
     if cfg["model"] == "baseline":
         return TinyCNN(cfg["channels"]).to("cuda")
@@ -111,10 +112,12 @@ def build_model(cfg: Dict) -> nn.Module:
 #  Training loop – returns statistics
 # -------------------------------------------------------
 
+
 def train(model: nn.Module, loader: DataLoader, cfg: Dict) -> Dict[str, List[float]]:
     model.train()
     optimiser = torch.optim.AdamW(model.parameters(), lr=cfg["lr"])
-    scaler = GradScaler(device_type="cuda")
+    # GradScaler does not accept `device_type`; it infers the device automatically.
+    scaler = GradScaler()
 
     mem, losses = [], []
     for epoch in range(cfg["epochs"]):
@@ -133,13 +136,15 @@ def train(model: nn.Module, loader: DataLoader, cfg: Dict) -> Dict[str, List[flo
     return {"loss": losses, "mem": mem}
 
 # -------------------------------------------------------
-#  Plot helpers – saved under .research/iteration13/images
+#  Plot helpers – saved under .research/iteration14/images
 # -------------------------------------------------------
 
+
 def _make_img_dir():
-    img_dir = pathlib.Path(".research/iteration13/images")
+    img_dir = pathlib.Path(".research/iteration14/images")
     img_dir.mkdir(parents=True, exist_ok=True)
     return img_dir
+
 
 def save_plots(stats: Dict[str, List[float]], tag: str):
     img_dir = _make_img_dir()
