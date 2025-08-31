@@ -5,3 +5,592 @@
   publisher = {GitHub},
   url       = {https://github.com/airas-org/airas}
 }
+
+% ===========================================
+% REQUIRED CITATIONS
+% These papers must be cited in the manuscript
+% ===========================================
+
+@article{cho-2024-hollowed,
+ abstract = {Recent advancements in text-to-image diffusion models have enabled the
+personalization of these models to generate custom images from textual prompts.
+This paper presents an efficient LoRA-based personalization approach for
+on-device subject-driven generation, where pre-trained diffusion models are
+fine-tuned with user-specific data on resource-constrained devices. Our method,
+termed Hollowed Net, enhances memory efficiency during fine-tuning by modifying
+the architecture of a diffusion U-Net to temporarily remove a fraction of its
+deep layers, creating a hollowed structure. This approach directly addresses
+on-device memory constraints and substantially reduces GPU memory requirements
+for training, in contrast to previous methods that primarily focus on
+minimizing training steps and reducing the number of parameters to update.
+Additionally, the personalized Hollowed Net can be transferred back into the
+original U-Net, enabling inference without additional memory overhead.
+Quantitative and qualitative analyses demonstrate that our approach not only
+reduces training memory to levels as low as those required for inference but
+also maintains or improves personalization performance compared to existing
+methods.},
+ arxiv_url = {https://arxiv.org/pdf/2411.01179v1.pdf},
+ author = {Wonguk Cho and Seokeon Choi and Debasmit Das and Matthias Reisser and Taesup Kim and Sungrack Yun and Fatih Porikli},
+ title = {Hollowed Net for On-Device Personalization of Text-to-Image Diffusion Models},
+ year = {2024}
+}
+
+@article{cohen-2024-slicedit,
+ abstract = {Text-to-image (T2I) diffusion models achieve state-of-the-art results in
+image synthesis and editing. However, leveraging such pretrained models for
+video editing is considered a major challenge. Many existing works attempt to
+enforce temporal consistency in the edited video through explicit
+correspondence mechanisms, either in pixel space or between deep features.
+These methods, however, struggle with strong nonrigid motion. In this paper, we
+introduce a fundamentally different approach, which is based on the observation
+that spatiotemporal slices of natural videos exhibit similar characteristics to
+natural images. Thus, the same T2I diffusion model that is normally used only
+as a prior on video frames, can also serve as a strong prior for enhancing
+temporal consistency by applying it on spatiotemporal slices. Based on this
+observation, we present Slicedit, a method for text-based video editing that
+utilizes a pretrained T2I diffusion model to process both spatial and
+spatiotemporal slices. Our method generates videos that retain the structure
+and motion of the original video while adhering to the target text. Through
+extensive experiments, we demonstrate Slicedit's ability to edit a wide range
+of real-world videos, confirming its clear advantages compared to existing
+competing methods. Webpage: https://matankleiner.github.io/slicedit/},
+ arxiv_url = {https://arxiv.org/pdf/2405.12211v1.pdf},
+ author = {Nathaniel Cohen and Vladimir Kulikov and Matan Kleiner and Inbar Huberman-Spiegelglas and Tomer Michaeli},
+ github_url = {https://github.com/openai/CLIP},
+ title = {Slicedit: Zero-Shot Video Editing With Text-to-Image Diffusion Models Using Spatio-Temporal Slices},
+ year = {2024}
+}
+
+@article{daras-2023-ambient,
+ abstract = {We present the first diffusion-based framework that can learn an unknown
+distribution using only highly-corrupted samples. This problem arises in
+scientific applications where access to uncorrupted samples is impossible or
+expensive to acquire. Another benefit of our approach is the ability to train
+generative models that are less likely to memorize individual training samples
+since they never observe clean training data. Our main idea is to introduce
+additional measurement distortion during the diffusion process and require the
+model to predict the original corrupted image from the further corrupted image.
+We prove that our method leads to models that learn the conditional expectation
+of the full uncorrupted image given this additional measurement corruption.
+This holds for any corruption process that satisfies some technical conditions
+(and in particular includes inpainting and compressed sensing). We train models
+on standard benchmarks (CelebA, CIFAR-10 and AFHQ) and show that we can learn
+the distribution even when all the training samples have $90\%$ of their pixels
+missing. We also show that we can finetune foundation models on small corrupted
+datasets (e.g. MRI scans with block corruptions) and learn the clean
+distribution without memorizing the training set.},
+ arxiv_url = {https://arxiv.org/pdf/2305.19256v1.pdf},
+ author = {Giannis Daras and Kulin Shah and Yuval Dagan and Aravind Gollakota and Alexandros G. Dimakis and Adam Klivans},
+ github_url = {https://github.com/giannisdaras/ambient-diffusion},
+ title = {Ambient Diffusion: Learning Clean Distributions from Corrupted Data},
+ year = {2023}
+}
+
+@article{fang-2023-structural,
+ abstract = {Generative modeling has recently undergone remarkable advancements, primarily
+propelled by the transformative implications of Diffusion Probabilistic Models
+(DPMs). The impressive capability of these models, however, often entails
+significant computational overhead during both training and inference. To
+tackle this challenge, we present Diff-Pruning, an efficient compression method
+tailored for learning lightweight diffusion models from pre-existing ones,
+without the need for extensive re-training. The essence of Diff-Pruning is
+encapsulated in a Taylor expansion over pruned timesteps, a process that
+disregards non-contributory diffusion steps and ensembles informative gradients
+to identify important weights. Our empirical assessment, undertaken across
+several datasets highlights two primary benefits of our proposed method: 1)
+Efficiency: it enables approximately a 50\% reduction in FLOPs at a mere 10\%
+to 20\% of the original training expenditure; 2) Consistency: the pruned
+diffusion models inherently preserve generative behavior congruent with their
+pre-trained models. Code is available at
+\url{https://github.com/VainF/Diff-Pruning}.},
+ arxiv_url = {https://arxiv.org/pdf/2305.10924v3.pdf},
+ author = {Gongfan Fang and Xinyin Ma and Xinchao Wang},
+ github_url = {https://github.com/VainF/Diff-Pruning},
+ title = {Structural Pruning for Diffusion Models},
+ year = {2023}
+}
+
+@article{habibian-2023-clockwork,
+ abstract = {This work aims to improve the efficiency of text-to-image diffusion models.
+While diffusion models use computationally expensive UNet-based denoising
+operations in every generation step, we identify that not all operations are
+equally relevant for the final output quality. In particular, we observe that
+UNet layers operating on high-res feature maps are relatively sensitive to
+small perturbations. In contrast, low-res feature maps influence the semantic
+layout of the final image and can often be perturbed with no noticeable change
+in the output. Based on this observation, we propose Clockwork Diffusion, a
+method that periodically reuses computation from preceding denoising steps to
+approximate low-res feature maps at one or more subsequent steps. For multiple
+baselines, and for both text-to-image generation and image editing, we
+demonstrate that Clockwork leads to comparable or improved perceptual scores
+with drastically reduced computational complexity. As an example, for Stable
+Diffusion v1.5 with 8 DPM++ steps we save 32% of FLOPs with negligible FID and
+CLIP change.},
+ arxiv_url = {https://arxiv.org/pdf/2312.08128v2.pdf},
+ author = {Amirhossein Habibian and Amir Ghodrati and Noor Fathima and Guillaume Sautiere and Risheek Garrepalli and Fatih Porikli and Jens Petersen},
+ title = {Clockwork Diffusion: Efficient Generation With Model-Step Distillation},
+ year = {2023}
+}
+
+@article{he-2024-aid,
+ abstract = {Conditional diffusion models can create unseen images in various settings,
+aiding image interpolation. Interpolation in latent spaces is well-studied, but
+interpolation with specific conditions like text or poses is less understood.
+Simple approaches, such as linear interpolation in the space of conditions,
+often result in images that lack consistency, smoothness, and fidelity. To that
+end, we introduce a novel training-free technique named Attention Interpolation
+via Diffusion (AID). Our key contributions include 1) proposing an inner/outer
+interpolated attention layer; 2) fusing the interpolated attention with
+self-attention to boost fidelity; and 3) applying beta distribution to
+selection to increase smoothness. We also present a variant, Prompt-guided
+Attention Interpolation via Diffusion (PAID), that considers interpolation as a
+condition-dependent generative process. This method enables the creation of new
+images with greater consistency, smoothness, and efficiency, and offers control
+over the exact path of interpolation. Our approach demonstrates effectiveness
+for conceptual and spatial interpolation. Code and demo are available at
+https://github.com/QY-H00/attention-interpolation-diffusion.},
+ arxiv_url = {https://arxiv.org/pdf/2403.17924v3.pdf},
+ author = {Qiyuan He and Jinghao Wang and Ziwei Liu and Angela Yao},
+ title = {AID: Attention Interpolation of Text-to-Image Diffusion},
+ year = {2024}
+}
+
+@article{li-2023-snapfusion,
+ abstract = {Text-to-image diffusion models can create stunning images from natural
+language descriptions that rival the work of professional artists and
+photographers. However, these models are large, with complex network
+architectures and tens of denoising iterations, making them computationally
+expensive and slow to run. As a result, high-end GPUs and cloud-based inference
+are required to run diffusion models at scale. This is costly and has privacy
+implications, especially when user data is sent to a third party. To overcome
+these challenges, we present a generic approach that, for the first time,
+unlocks running text-to-image diffusion models on mobile devices in less than
+$2$ seconds. We achieve so by introducing efficient network architecture and
+improving step distillation. Specifically, we propose an efficient UNet by
+identifying the redundancy of the original model and reducing the computation
+of the image decoder via data distillation. Further, we enhance the step
+distillation by exploring training strategies and introducing regularization
+from classifier-free guidance. Our extensive experiments on MS-COCO show that
+our model with $8$ denoising steps achieves better FID and CLIP scores than
+Stable Diffusion v$1.5$ with $50$ steps. Our work democratizes content creation
+by bringing powerful text-to-image diffusion models to the hands of users.},
+ arxiv_url = {https://arxiv.org/pdf/2306.00980v3.pdf},
+ author = {Yanyu Li and Huan Wang and Qing Jin and Ju Hu and Pavlo Chemerys and Yun Fu and Yanzhi Wang and Sergey Tulyakov and Jian Ren},
+ github_url = {https://github.com/huggingface/diffusers},
+ title = {SnapFusion: Text-to-Image Diffusion Model on Mobile Devices within Two Seconds},
+ year = {2023}
+}
+
+@article{ma-2023-deepcache,
+ abstract = {Diffusion models have recently gained unprecedented attention in the field of
+image synthesis due to their remarkable generative capabilities.
+Notwithstanding their prowess, these models often incur substantial
+computational costs, primarily attributed to the sequential denoising process
+and cumbersome model size. Traditional methods for compressing diffusion models
+typically involve extensive retraining, presenting cost and feasibility
+challenges. In this paper, we introduce DeepCache, a novel training-free
+paradigm that accelerates diffusion models from the perspective of model
+architecture. DeepCache capitalizes on the inherent temporal redundancy
+observed in the sequential denoising steps of diffusion models, which caches
+and retrieves features across adjacent denoising stages, thereby curtailing
+redundant computations. Utilizing the property of the U-Net, we reuse the
+high-level features while updating the low-level features in a very cheap way.
+This innovative strategy, in turn, enables a speedup factor of 2.3$\times$ for
+Stable Diffusion v1.5 with only a 0.05 decline in CLIP Score, and 4.1$\times$
+for LDM-4-G with a slight decrease of 0.22 in FID on ImageNet. Our experiments
+also demonstrate DeepCache's superiority over existing pruning and distillation
+methods that necessitate retraining and its compatibility with current sampling
+techniques. Furthermore, we find that under the same throughput, DeepCache
+effectively achieves comparable or even marginally improved results with DDIM
+or PLMS. The code is available at https://github.com/horseee/DeepCache},
+ arxiv_url = {https://arxiv.org/pdf/2312.00858v2.pdf},
+ author = {Xinyin Ma and Gongfan Fang and Xinchao Wang},
+ github_url = {https://github.com/horseee/DeepCache},
+ title = {DeepCache: Accelerating Diffusion Models for Free},
+ year = {2023}
+}
+
+@article{ma-2024-learning,
+ abstract = {Diffusion Transformers have recently demonstrated unprecedented generative
+capabilities for various tasks. The encouraging results, however, come with the
+cost of slow inference, since each denoising step requires inference on a
+transformer model with a large scale of parameters. In this study, we make an
+interesting and somehow surprising observation: the computation of a large
+proportion of layers in the diffusion transformer, through introducing a
+caching mechanism, can be readily removed even without updating the model
+parameters. In the case of U-ViT-H/2, for example, we may remove up to 93.68%
+of the computation in the cache steps (46.84% for all steps), with less than
+0.01 drop in FID. To achieve this, we introduce a novel scheme, named
+Learning-to-Cache (L2C), that learns to conduct caching in a dynamic manner for
+diffusion transformers. Specifically, by leveraging the identical structure of
+layers in transformers and the sequential nature of diffusion, we explore
+redundant computations between timesteps by treating each layer as the
+fundamental unit for caching. To address the challenge of the exponential
+search space in deep models for identifying layers to cache and remove, we
+propose a novel differentiable optimization objective. An input-invariant yet
+timestep-variant router is then optimized, which can finally produce a static
+computation graph. Experimental results show that L2C largely outperforms
+samplers such as DDIM and DPM-Solver, alongside prior cache-based methods at
+the same inference speed. Code is available at
+https://github.com/horseee/learning-to-cache},
+ arxiv_url = {https://arxiv.org/pdf/2406.01733v2.pdf},
+ author = {Xinyin Ma and Gongfan Fang and Michael Bi Mi and Xinchao Wang},
+ github_url = {https://github.com/horseee/learning-to-cache},
+ title = {Learning-to-Cache: Accelerating Diffusion Transformer via Layer Caching},
+ year = {2024}
+}
+
+@article{moon-2024-simple,
+ abstract = {Diffusion models have shown remarkable performance in generation problems
+over various domains including images, videos, text, and audio. A practical
+bottleneck of diffusion models is their sampling speed, due to the repeated
+evaluation of score estimation networks during the inference. In this work, we
+propose a novel framework capable of adaptively allocating compute required for
+the score estimation, thereby reducing the overall sampling time of diffusion
+models. We observe that the amount of computation required for the score
+estimation may vary along the time step for which the score is estimated. Based
+on this observation, we propose an early-exiting scheme, where we skip the
+subset of parameters in the score estimation network during the inference,
+based on a time-dependent exit schedule. Using the diffusion models for image
+synthesis, we show that our method could significantly improve the sampling
+throughput of the diffusion models without compromising image quality.
+Furthermore, we also demonstrate that our method seamlessly integrates with
+various types of solvers for faster sampling, capitalizing on their
+compatibility to enhance overall efficiency. The source code and our
+experiments are available at \url{https://github.com/taehong-moon/ee-diffusion}},
+ arxiv_url = {https://arxiv.org/pdf/2408.05927v1.pdf},
+ author = {Taehong Moon and Moonseok Choi and EungGu Yun and Jongmin Yoon and Gayoung Lee and Jaewoong Cho and Juho Lee},
+ title = {A Simple Early Exiting Framework for Accelerated Sampling in Diffusion Models},
+ year = {2024}
+}
+
+@article{salimans-2024-multistep,
+ abstract = {We present a new method for making diffusion models faster to sample. The
+method distills many-step diffusion models into few-step models by matching
+conditional expectations of the clean data given noisy data along the sampling
+trajectory. Our approach extends recently proposed one-step methods to the
+multi-step case, and provides a new perspective by interpreting these
+approaches in terms of moment matching. By using up to 8 sampling steps, we
+obtain distilled models that outperform not only their one-step versions but
+also their original many-step teacher models, obtaining new state-of-the-art
+results on the Imagenet dataset. We also show promising results on a large
+text-to-image model where we achieve fast generation of high resolution images
+directly in image space, without needing autoencoders or upsamplers.},
+ arxiv_url = {https://arxiv.org/pdf/2406.04103v1.pdf},
+ author = {Tim Salimans and Thomas Mensink and Jonathan Heek and Emiel Hoogeboom},
+ github_url = {https://github.com/google/jax},
+ title = {Multistep Distillation of Diffusion Models via Moment Matching},
+ year = {2024}
+}
+
+@article{so-2023-temporal,
+ abstract = {The diffusion model has gained popularity in vision applications due to its
+remarkable generative performance and versatility. However, high storage and
+computation demands, resulting from the model size and iterative generation,
+hinder its use on mobile devices. Existing quantization techniques struggle to
+maintain performance even in 8-bit precision due to the diffusion model's
+unique property of temporal variation in activation. We introduce a novel
+quantization method that dynamically adjusts the quantization interval based on
+time step information, significantly improving output quality. Unlike
+conventional dynamic quantization techniques, our approach has no computational
+overhead during inference and is compatible with both post-training
+quantization (PTQ) and quantization-aware training (QAT). Our extensive
+experiments demonstrate substantial improvements in output quality with the
+quantized diffusion model across various datasets.},
+ arxiv_url = {https://arxiv.org/pdf/2306.02316v2.pdf},
+ author = {Junhyuk So and Jungwon Lee and Daehyun Ahn and Hyungjun Kim and Eunhyeok Park},
+ title = {Temporal Dynamic Quantization for Diffusion Models},
+ year = {2023}
+}
+
+@article{wang-2024-attention,
+ abstract = {Diffusion Models (DMs) have exhibited superior performance in generating
+high-quality and diverse images. However, this exceptional performance comes at
+the cost of expensive architectural design, particularly due to the attention
+module heavily used in leading models. Existing works mainly adopt a retraining
+process to enhance DM efficiency. This is computationally expensive and not
+very scalable. To this end, we introduce the Attention-driven Training-free
+Efficient Diffusion Model (AT-EDM) framework that leverages attention maps to
+perform run-time pruning of redundant tokens, without the need for any
+retraining. Specifically, for single-denoising-step pruning, we develop a novel
+ranking algorithm, Generalized Weighted Page Rank (G-WPR), to identify
+redundant tokens, and a similarity-based recovery method to restore tokens for
+the convolution operation. In addition, we propose a Denoising-Steps-Aware
+Pruning (DSAP) approach to adjust the pruning budget across different denoising
+timesteps for better generation quality. Extensive evaluations show that AT-EDM
+performs favorably against prior art in terms of efficiency (e.g., 38.8% FLOPs
+saving and up to 1.53x speed-up over Stable Diffusion XL) while maintaining
+nearly the same FID and CLIP scores as the full model. Project webpage:
+https://atedm.github.io.},
+ arxiv_url = {https://arxiv.org/pdf/2405.05252v1.pdf},
+ author = {Hongjie Wang and Difan Liu and Yan Kang and Yijun Li and Zhe Lin and Niraj K. Jha and Yuchen Liu},
+ title = {Attention-Driven Training-Free Efficiency Enhancement of Diffusion Models},
+ year = {2024}
+}
+
+@article{wimbauer-2023-cache,
+ abstract = {Diffusion models have recently revolutionized the field of image synthesis
+due to their ability to generate photorealistic images. However, one of the
+major drawbacks of diffusion models is that the image generation process is
+costly. A large image-to-image network has to be applied many times to
+iteratively refine an image from random noise. While many recent works propose
+techniques to reduce the number of required steps, they generally treat the
+underlying denoising network as a black box. In this work, we investigate the
+behavior of the layers within the network and find that 1) the layers' output
+changes smoothly over time, 2) the layers show distinct patterns of change, and
+3) the change from step to step is often very small. We hypothesize that many
+layer computations in the denoising network are redundant. Leveraging this, we
+introduce block caching, in which we reuse outputs from layer blocks of
+previous steps to speed up inference. Furthermore, we propose a technique to
+automatically determine caching schedules based on each block's changes over
+timesteps. In our experiments, we show through FID, human evaluation and
+qualitative analysis that Block Caching allows to generate images with higher
+visual quality at the same computational cost. We demonstrate this for
+different state-of-the-art models (LDM and EMU) and solvers (DDIM and DPM).},
+ arxiv_url = {https://arxiv.org/pdf/2312.03209v2.pdf},
+ author = {Felix Wimbauer and Bichen Wu and Edgar Schoenfeld and Xiaoliang Dai and Ji Hou and Zijian He and Artsiom Sanakoyeu and Peizhao Zhang and Sam Tsai and Jonas Kohler and Christian Rupprecht and Daniel Cremers and Peter Vajda and Jialiang Wang},
+ title = {Cache Me if You Can: Accelerating Diffusion Models through Block Caching},
+ year = {2023}
+}
+
+@article{wizadwongsa-2023-accelerating,
+ abstract = {Guided diffusion is a technique for conditioning the output of a diffusion
+model at sampling time without retraining the network for each specific task.
+One drawback of diffusion models, however, is their slow sampling process.
+Recent techniques can accelerate unguided sampling by applying high-order
+numerical methods to the sampling process when viewed as differential
+equations. On the contrary, we discover that the same techniques do not work
+for guided sampling, and little has been explored about its acceleration. This
+paper explores the culprit of this problem and provides a solution based on
+operator splitting methods, motivated by our key finding that classical
+high-order numerical methods are unsuitable for the conditional function. Our
+proposed method can re-utilize the high-order methods for guided sampling and
+can generate images with the same quality as a 250-step DDIM baseline using
+32-58% less sampling time on ImageNet256. We also demonstrate usage on a wide
+variety of conditional generation tasks, such as text-to-image generation,
+colorization, inpainting, and super-resolution.},
+ arxiv_url = {https://arxiv.org/pdf/2301.11558v1.pdf},
+ author = {Suttisak Wizadwongsa and Supasorn Suwajanakorn},
+ github_url = {https://github.com/sWizad/split-diffusion},
+ title = {Accelerating Guided Diffusion Sampling with Splitting Numerical Methods},
+ year = {2023}
+}
+
+@article{yuan-2024-ditfastattn,
+ abstract = {Diffusion Transformers (DiT) excel at image and video generation but face
+computational challenges due to the quadratic complexity of self-attention
+operators. We propose DiTFastAttn, a post-training compression method to
+alleviate the computational bottleneck of DiT. We identify three key
+redundancies in the attention computation during DiT inference: (1) spatial
+redundancy, where many attention heads focus on local information; (2) temporal
+redundancy, with high similarity between the attention outputs of neighboring
+steps; (3) conditional redundancy, where conditional and unconditional
+inferences exhibit significant similarity. We propose three techniques to
+reduce these redundancies: (1) Window Attention with Residual Sharing to reduce
+spatial redundancy; (2) Attention Sharing across Timesteps to exploit the
+similarity between steps; (3) Attention Sharing across CFG to skip redundant
+computations during conditional generation. We apply DiTFastAttn to DiT,
+PixArt-Sigma for image generation tasks, and OpenSora for video generation
+tasks. Our results show that for image generation, our method reduces up to 76%
+of the attention FLOPs and achieves up to 1.8x end-to-end speedup at
+high-resolution (2k x 2k) generation.},
+ arxiv_url = {https://arxiv.org/pdf/2406.08552v2.pdf},
+ author = {Zhihang Yuan and Hanling Zhang and Pu Lu and Xuefei Ning and Linfeng Zhang and Tianchen Zhao and Shengen Yan and Guohao Dai and Yu Wang},
+ github_url = {https://github.com/hpcaitech/Open-Sora},
+ title = {DiTFastAttn: Attention Compression for Diffusion Transformer Models},
+ year = {2024}
+}
+
+@article{zhan-2024-fast,
+ abstract = {The rapid progress in artificial intelligence-generated content (AIGC),
+especially with diffusion models, has significantly advanced development of
+high-quality video generation. However, current video diffusion models exhibit
+demanding computational requirements and high peak memory usage, especially for
+generating longer and higher-resolution videos. These limitations greatly
+hinder the practical application of video diffusion models on standard hardware
+platforms. To tackle this issue, we present a novel, training-free framework
+named Streamlined Inference, which leverages the temporal and spatial
+properties of video diffusion models. Our approach integrates three core
+components: Feature Slicer, Operator Grouping, and Step Rehash. Specifically,
+Feature Slicer effectively partitions input features into sub-features and
+Operator Grouping processes each sub-feature with a group of consecutive
+operators, resulting in significant memory reduction without sacrificing the
+quality or speed. Step Rehash further exploits the similarity between adjacent
+steps in diffusion, and accelerates inference through skipping unnecessary
+steps. Extensive experiments demonstrate that our approach significantly
+reduces peak memory and computational overhead, making it feasible to generate
+high-quality videos on a single consumer GPU (e.g., reducing peak memory of
+AnimateDiff from 42GB to 11GB, featuring faster inference on 2080Ti).},
+ arxiv_url = {https://arxiv.org/pdf/2411.01171v1.pdf},
+ author = {Zheng Zhan and Yushu Wu and Yifan Gong and Zichong Meng and Zhenglun Kong and Changdi Yang and Geng Yuan and Pu Zhao and Wei Niu and Yanzhi Wang},
+ github_url = {https://github.com/wuyushuwys/FMEDiffusion},
+ title = {Fast and Memory-Efficient Video Diffusion Using Streamlined Inference},
+ year = {2024}
+}
+
+@article{zhang-2022-dimensionality,
+ abstract = {Diffusion models, which learn to reverse a signal destruction process to
+generate new data, typically require the signal at each step to have the same
+dimension. We argue that, considering the spatial redundancy in image signals,
+there is no need to maintain a high dimensionality in the evolution process,
+especially in the early generation phase. To this end, we make a theoretical
+generalization of the forward diffusion process via signal decomposition.
+Concretely, we manage to decompose an image into multiple orthogonal components
+and control the attenuation of each component when perturbing the image. That
+way, along with the noise strength increasing, we are able to diminish those
+inconsequential components and thus use a lower-dimensional signal to represent
+the source, barely losing information. Such a reformulation allows to vary
+dimensions in both training and inference of diffusion models. Extensive
+experiments on a range of datasets suggest that our approach substantially
+reduces the computational cost and achieves on-par or even better synthesis
+performance compared to baseline methods. We also show that our strategy
+facilitates high-resolution image synthesis and improves FID of diffusion model
+trained on FFHQ at $1024\times1024$ resolution from 52.40 to 10.46. Code and
+models will be made publicly available.},
+ arxiv_url = {https://arxiv.org/pdf/2211.16032v1.pdf},
+ author = {Han Zhang and Ruili Feng and Zhantao Yang and Lianghua Huang and Yu Liu and Yifei Zhang and Yujun Shen and Deli Zhao and Jingren Zhou and Fan Cheng},
+ title = {Dimensionality-Varying Diffusion Process},
+ year = {2022}
+}
+
+@article{zhang-2023-improving,
+ abstract = {Diffusion models, emerging as powerful deep generative tools, excel in
+various applications. They operate through a two-steps process: introducing
+noise into training samples and then employing a model to convert random noise
+into new samples (e.g., images). However, their remarkable generative
+performance is hindered by slow training and sampling. This is due to the
+necessity of tracking extensive forward and reverse diffusion trajectories, and
+employing a large model with numerous parameters across multiple timesteps
+(i.e., noise levels). To tackle these challenges, we present a multi-stage
+framework inspired by our empirical findings. These observations indicate the
+advantages of employing distinct parameters tailored to each timestep while
+retaining universal parameters shared across all time steps. Our approach
+involves segmenting the time interval into multiple stages where we employ
+custom multi-decoder U-net architecture that blends time-dependent models with
+a universally shared encoder. Our framework enables the efficient distribution
+of computational resources and mitigates inter-stage interference, which
+substantially improves training efficiency. Extensive numerical experiments
+affirm the effectiveness of our framework, showcasing significant training and
+sampling efficiency enhancements on three state-of-the-art diffusion models,
+including large-scale latent diffusion models. Furthermore, our ablation
+studies illustrate the impact of two important components in our framework: (i)
+a novel timestep clustering algorithm for stage division, and (ii) an
+innovative multi-decoder U-net architecture, seamlessly integrating universal
+and customized hyperparameters.},
+ arxiv_url = {https://arxiv.org/pdf/2312.09181v3.pdf},
+ author = {Huijie Zhang and Yifu Lu and Ismail Alkhouri and Saiprasad Ravishankar and Dogyoon Song and Qing Qu},
+ github_url = {https://github.com/LucasYFL/Multistage_Diffusion},
+ title = {Improving Training Efficiency of Diffusion Models via Multi-Stage Framework and Tailored Multi-Decoder Architecture},
+ year = {2023}
+}
+
+% ===========================================
+% REFERENCE CANDIDATES
+% Additional reference papers for context
+% ===========================================
+
+@article{blattmann-2023-align,
+ abstract = {Latent Diffusion Models (LDMs) enable high-quality image synthesis while
+avoiding excessive compute demands by training a diffusion model in a
+compressed lower-dimensional latent space. Here, we apply the LDM paradigm to
+high-resolution video generation, a particularly resource-intensive task. We
+first pre-train an LDM on images only; then, we turn the image generator into a
+video generator by introducing a temporal dimension to the latent space
+diffusion model and fine-tuning on encoded image sequences, i.e., videos.
+Similarly, we temporally align diffusion model upsamplers, turning them into
+temporally consistent video super resolution models. We focus on two relevant
+real-world applications: Simulation of in-the-wild driving data and creative
+content creation with text-to-video modeling. In particular, we validate our
+Video LDM on real driving videos of resolution 512 x 1024, achieving
+state-of-the-art performance. Furthermore, our approach can easily leverage
+off-the-shelf pre-trained image LDMs, as we only need to train a temporal
+alignment model in that case. Doing so, we turn the publicly available,
+state-of-the-art text-to-image LDM Stable Diffusion into an efficient and
+expressive text-to-video model with resolution up to 1280 x 2048. We show that
+the temporal layers trained in this way generalize to different fine-tuned
+text-to-image LDMs. Utilizing this property, we show the first results for
+personalized text-to-video generation, opening exciting directions for future
+content creation. Project page:
+https://research.nvidia.com/labs/toronto-ai/VideoLDM/},
+ arxiv_url = {https://arxiv.org/pdf/2304.08818v2.pdf},
+ author = {Andreas Blattmann and Robin Rombach and Huan Ling and Tim Dockhorn and Seung Wook Kim and Sanja Fidler and Karsten Kreis},
+ title = {Align your latents: High-resolution video synthesis with latent diffusion models},
+ year = {2023}
+}
+
+@article{blattmann-2023-stable,
+ abstract = {We present Stable Video Diffusion - a latent video diffusion model for
+high-resolution, state-of-the-art text-to-video and image-to-video generation.
+Recently, latent diffusion models trained for 2D image synthesis have been
+turned into generative video models by inserting temporal layers and finetuning
+them on small, high-quality video datasets. However, training methods in the
+literature vary widely, and the field has yet to agree on a unified strategy
+for curating video data. In this paper, we identify and evaluate three
+different stages for successful training of video LDMs: text-to-image
+pretraining, video pretraining, and high-quality video finetuning. Furthermore,
+we demonstrate the necessity of a well-curated pretraining dataset for
+generating high-quality videos and present a systematic curation process to
+train a strong base model, including captioning and filtering strategies. We
+then explore the impact of finetuning our base model on high-quality data and
+train a text-to-video model that is competitive with closed-source video
+generation. We also show that our base model provides a powerful motion
+representation for downstream tasks such as image-to-video generation and
+adaptability to camera motion-specific LoRA modules. Finally, we demonstrate
+that our model provides a strong multi-view 3D-prior and can serve as a base to
+finetune a multi-view diffusion model that jointly generates multiple views of
+objects in a feedforward fashion, outperforming image-based methods at a
+fraction of their compute budget. We release code and model weights at
+https://github.com/Stability-AI/generative-models .},
+ arxiv_url = {https://arxiv.org/pdf/2311.15127v1.pdf},
+ author = {Andreas Blattmann and Tim Dockhorn and Sumith Kulal and Daniel Mendelevitch and Maciej Kilian and Dominik Lorenz and Yam Levi and Zion English and Vikram Voleti and Adam Letts and Varun Jampani and Robin Rombach},
+ title = {Stable video diffusion: Scaling latent video diffusion models to large datasets},
+ year = {2023}
+}
+
+@article{guo-2023-animatediff,
+ abstract = {With the advance of text-to-image (T2I) diffusion models (e.g., Stable
+Diffusion) and corresponding personalization techniques such as DreamBooth and
+LoRA, everyone can manifest their imagination into high-quality images at an
+affordable cost. However, adding motion dynamics to existing high-quality
+personalized T2Is and enabling them to generate animations remains an open
+challenge. In this paper, we present AnimateDiff, a practical framework for
+animating personalized T2I models without requiring model-specific tuning. At
+the core of our framework is a plug-and-play motion module that can be trained
+once and seamlessly integrated into any personalized T2Is originating from the
+same base T2I. Through our proposed training strategy, the motion module
+effectively learns transferable motion priors from real-world videos. Once
+trained, the motion module can be inserted into a personalized T2I model to
+form a personalized animation generator. We further propose MotionLoRA, a
+lightweight fine-tuning technique for AnimateDiff that enables a pre-trained
+motion module to adapt to new motion patterns, such as different shot types, at
+a low training and data collection cost. We evaluate AnimateDiff and MotionLoRA
+on several public representative personalized T2I models collected from the
+community. The results demonstrate that our approaches help these models
+generate temporally smooth animation clips while preserving the visual quality
+and motion diversity. Codes and pre-trained weights are available at
+https://github.com/guoyww/AnimateDiff.},
+ arxiv_url = {https://arxiv.org/pdf/2307.04725v2.pdf},
+ author = {Yuwei Guo and Ceyuan Yang and Anyi Rao and Zhengyang Liang and Yaohui Wang and Yu Qiao and Maneesh Agrawala and Dahua Lin and Bo Dai},
+ title = {Animatediff: Animate your personalized text-to-image diffusion models without specific tuning},
+ year = {2023}
+}
+
+@article{karras-2022-elucidating,
+ abstract = {We argue that the theory and practice of diffusion-based generative models
+are currently unnecessarily convoluted and seek to remedy the situation by
+presenting a design space that clearly separates the concrete design choices.
+This lets us identify several changes to both the sampling and training
+processes, as well as preconditioning of the score networks. Together, our
+improvements yield new state-of-the-art FID of 1.79 for CIFAR-10 in a
+class-conditional setting and 1.97 in an unconditional setting, with much
+faster sampling (35 network evaluations per image) than prior designs. To
+further demonstrate their modular nature, we show that our design changes
+dramatically improve both the efficiency and quality obtainable with
+pre-trained score networks from previous work, including improving the FID of a
+previously trained ImageNet-64 model from 2.07 to near-SOTA 1.55, and after
+re-training with our proposed improvements to a new SOTA of 1.36.},
+ arxiv_url = {https://arxiv.org/pdf/2206.00364v2.pdf},
+ author = {Tero Karras and Miika Aittala and Timo Aila and Samuli Laine},
+ title = {Elucidating the design space of diffusion-based generative models},
+ year = {2022}
+}
