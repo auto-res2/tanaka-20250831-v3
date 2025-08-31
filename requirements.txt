@@ -1,1 +1,15 @@
-# Please list the required python packages.
+torch>=2.1
+torchvision>=0.16
+diffusers>=0.24
+accelerate>=0.24
+transformers>=4.34
+bitsandbytes>=0.42
+fvcore>=0.1.5
+tqdm
+numpy
+pandas
+matplotlib
+seaborn
+pynvml
+# Optional – only needed if the user installs the custom reversible-chunked UNet wrapper
+rechunet

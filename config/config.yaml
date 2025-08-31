@@ -1,0 +1,8 @@
+# Example configuration file (values correspond to the CLI defaults)
+dataset: cifar10
+variant: baseline
+batch: 8
+lr: 1.0e-4
+steps: 2000
+seed: 0
+grad_accum: 1
