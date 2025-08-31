@@ -20,7 +20,7 @@ __all__ = [
 # -----------------------------------------------------------------------------
 # All figures must be stored in this directory (created on the fly)
 # -----------------------------------------------------------------------------
-_IM_DIR = Path(".research/iteration3/images")  # updated as per specification
+_IM_DIR = Path(".research/iteration4/images")  # updated as per specification
 _IM_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -59,9 +59,9 @@ def save_lineplot(
     filename: str,
 ):
     plt.figure(figsize=(6, 4))
-    for label, y in ys.items():
-        sns.lineplot(x=x, y=y, label=label)
-        plt.text(x[-1], y[-1], f"{y[-1]:.2f}")
+    for label, y_vals in ys.items():
+        sns.lineplot(x=x, y=y_vals, label=label)
+        plt.text(x[-1], y_vals[-1], f"{y_vals[-1]:.2f}")
     plt.title(title)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)

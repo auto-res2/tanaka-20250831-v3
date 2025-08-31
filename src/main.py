@@ -77,7 +77,13 @@ def _exp3():
 
 def main():
     parser = argparse.ArgumentParser(description="Run ReST experiments")
-    parser.add_argument("--exp", type=int, required=True, choices=[1, 2, 3], help="Which experiment to run")
+    parser.add_argument(
+        "--exp",
+        type=int,
+        choices=[1, 2, 3],
+        default=1,  # Default to experiment 1 when not specified
+        help="Which experiment to run (default: 1)",
+    )
     args = parser.parse_args()
 
     if args.exp == 1:
