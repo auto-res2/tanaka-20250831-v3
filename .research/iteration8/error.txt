@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/main.py", line 19, in <module>
+    from .train import run_training
+ImportError: cannot import name 'run_training' from 'src.train' (/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/train.py)
