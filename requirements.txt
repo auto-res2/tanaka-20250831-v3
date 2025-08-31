@@ -8,7 +8,6 @@ fvcore
 torchmetrics
 deepseed; extra == "cpu"   # optional
 pytorch-fid
-pytorch-fvd
 open-clip-torch
 decord
 pandas

@@ -8,14 +8,27 @@ from torchmetrics.image.fid import FrechetInceptionDistance
 import numpy as np
 import seaborn as sns, matplotlib.pyplot as plt
 from typing import Dict, List
+from pathlib import Path
 
-__all__ = ["FIDEvaluator", "save_lineplot", "save_barplot", "human_readable_size"]
+__all__ = [
+    "FIDEvaluator",
+    "save_lineplot",
+    "save_barplot",
+    "human_readable_size",
+]
+
+# -----------------------------------------------------------------------------
+# All figures must be stored in this directory (created on the fly)
+# -----------------------------------------------------------------------------
+_IM_DIR = Path(".research/iteration2/images")
+_IM_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class FIDEvaluator:
     """Thin wrapper around torchmetrics' FrechetInceptionDistance so that we can
     accumulate results across the whole training run.
     """
+
     def __init__(self, device: str | torch.device = "cuda"):
         self._impl = FrechetInceptionDistance(feature=2048, normalize=True).to(device)
 
@@ -32,7 +45,19 @@ class FIDEvaluator:
 # Helper plotting utilities (PDF, high-quality)
 # ----------------------------------------------------------------------------
 
-def save_lineplot(x: List[int], ys: Dict[str, List[float]], title: str, xlabel: str, ylabel: str, filename: str):
+def _resolve_path(filename: str | Path) -> Path:
+    """Return absolute path inside the mandated images directory."""
+    return _IM_DIR / Path(filename).name
+
+
+def save_lineplot(
+    x: List[int],
+    ys: Dict[str, List[float]],
+    title: str,
+    xlabel: str,
+    ylabel: str,
+    filename: str,
+):
     plt.figure(figsize=(6, 4))
     for label, y in ys.items():
         sns.lineplot(x=x, y=y, label=label)
@@ -42,11 +67,17 @@ def save_lineplot(x: List[int], ys: Dict[str, List[float]], title: str, xlabel: 
     plt.ylabel(ylabel)
     plt.legend()
     plt.tight_layout()
-    plt.savefig(filename, bbox_inches="tight", dpi=300)
+    plt.savefig(_resolve_path(filename), bbox_inches="tight", dpi=300)
     plt.close()
 
 
-def save_barplot(categories: List[str], values: List[float], title: str, ylabel: str, filename: str):
+def save_barplot(
+    categories: List[str],
+    values: List[float],
+    title: str,
+    ylabel: str,
+    filename: str,
+):
     plt.figure(figsize=(6, 4))
     sns.barplot(x=categories, y=values, palette="viridis")
     for idx, val in enumerate(values):
@@ -54,7 +85,7 @@ def save_barplot(categories: List[str], values: List[float], title: str, ylabel:
     plt.title(title)
     plt.ylabel(ylabel)
     plt.tight_layout()
-    plt.savefig(filename, bbox_inches="tight", dpi=300)
+    plt.savefig(_resolve_path(filename), bbox_inches="tight", dpi=300)
     plt.close()
 
 
