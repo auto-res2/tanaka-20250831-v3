@@ -1,0 +1,25 @@
+/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/train.py:109: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler = GradScaler()
+/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/train.py:75: FutureWarning: `torch.cuda.amp.autocast(args...)` is deprecated. Please use `torch.amp.autocast('cuda', args...)` instead.
+  with autocast():
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/main.py", line 57, in <module>
+    main()
+  File "/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/main.py", line 43, in main
+    csv_path, loss_fig = train_model(args)
+                         ^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/train.py", line 125, in train_model
+    loss = _diffusion_loss(unet, scheduler, batch, device)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/train.py", line 76, in _diffusion_loss
+    noise_pred = unet(noisy, timesteps).sample
+                 ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/_tool/Python/3.11.13/x64/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1773, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/_tool/Python/3.11.13/x64/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1784, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: UNet2DConditionModel.forward() missing 1 required positional argument: 'encoder_hidden_states'
