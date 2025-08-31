@@ -136,12 +136,12 @@ def train(model: nn.Module, loader: DataLoader, cfg: Dict) -> Dict[str, List[flo
     return {"loss": losses, "mem": mem}
 
 # -------------------------------------------------------
-#  Plot helpers – saved under .research/iteration14/images
+#  Plot helpers – saved under .research/iteration15/images
 # -------------------------------------------------------
 
 
 def _make_img_dir():
-    img_dir = pathlib.Path(".research/iteration14/images")
+    img_dir = pathlib.Path(".research/iteration15/images")
     img_dir.mkdir(parents=True, exist_ok=True)
     return img_dir
 
