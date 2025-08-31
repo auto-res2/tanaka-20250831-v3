@@ -126,9 +126,7 @@ def train(cfg: Dict):
     model = TinyUNet(base_channels=cfg.get("base_channels", 32))
     model = _apply_rechu_if_available(model, cfg).to(device)
 
-    if device.type == "cuda":
-        model = model.half()
-
+    # NOTE: we keep the model in FP32; mixed precision is handled via autocast + GradScaler
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.get("lr", 1e-3))
 
     # ---------------------------------------------------------------------
@@ -148,8 +146,6 @@ def train(cfg: Dict):
             if step > num_steps:
                 break
             imgs = batch["pixel_values"].to(device)
-            if device.type == "cuda":
-                imgs = imgs.half()
             noise = torch.randn_like(imgs)
             noisy_imgs = imgs + 0.1 * noise  # fake diffusion noise
 
@@ -189,9 +185,9 @@ def train(cfg: Dict):
     from pathlib import Path
 
     # ------------------------------------------------------------------
-    # NOTE: all experiment images are now saved under iteration13
+    # NOTE: all experiment images are now saved under iteration14
     # ------------------------------------------------------------------
-    img_dir = Path(".research/iteration13/images")
+    img_dir = Path(".research/iteration14/images")
     img_dir.mkdir(parents=True, exist_ok=True)
     plt.figure(figsize=(6, 4))
     plt.plot(losses)

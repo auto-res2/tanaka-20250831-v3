@@ -2,7 +2,7 @@
 ----------------------------------
 Simple evaluation script that loads the model produced by `train.py` and
 computes a reconstruction MSE on a held-out validation set.
-Figures are saved as PDF in `.research/iteration13/images`.
+Figures are saved as PDF in `.research/iteration14/images`.
 """
 from __future__ import annotations
 
@@ -44,6 +44,7 @@ def evaluate(cfg: Dict):
 
     # 3. loop
     mse_total, n_pixels = 0.0, 0
+    imgs, preds = None, None  # for visualisation later
     with torch.no_grad():
         for batch in tqdm(val_loader, desc="evaluating"):
             imgs = batch["pixel_values"].to(device)
@@ -62,8 +63,8 @@ def evaluate(cfg: Dict):
     mpl.use("Agg")
     import matplotlib.pyplot as plt
 
-    imgs_vis = imgs[:4].cpu() * 0.5 + 0.5
-    preds_vis = preds[:4].cpu() * 0.5 + 0.5
+    imgs_vis = imgs[:4].cpu() * 0.5 + 0.5  # type: ignore[arg-type]
+    preds_vis = preds[:4].cpu() * 0.5 + 0.5  # type: ignore[arg-type]
 
     fig, axes = plt.subplots(4, 2, figsize=(4, 8))
     for i in range(4):
@@ -72,7 +73,7 @@ def evaluate(cfg: Dict):
         axes[i, 1].imshow(preds_vis[i].permute(1, 2, 0))
         axes[i, 1].axis("off")
     fig.suptitle("Ground-truth (left) vs. reconstruction (right)")
-    img_dir = pathlib.Path(".research/iteration13/images")
+    img_dir = pathlib.Path(".research/iteration14/images")
     img_dir.mkdir(parents=True, exist_ok=True)
     fig_path = img_dir / "qualitative_eval.pdf"
     plt.tight_layout()
