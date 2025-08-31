@@ -41,7 +41,8 @@ class _RevFn(torch.autograd.Function):
         f, g = ctx.f, ctx.g
         dy1, dy2 = torch.chunk(dy, 2, dim=1)
         with torch.enable_grad():
-            y1.requires_grad = True
+            # Re-enable gradient tracking on the saved tensor
+            y1 = y1.detach().requires_grad_()
             gy = g(y1)
             torch.autograd.backward(gy, dy2)
             dx2 = y1.grad.clone()
@@ -131,11 +132,11 @@ def train(model: nn.Module, loader: DataLoader, cfg: Dict) -> Dict[str, List[flo
     return {"loss": losses, "mem": mem}
 
 # -------------------------------------------------------
-#  Plot helpers – saved under .research/iteration11/images
+#  Plot helpers – saved under .research/iteration12/images
 # -------------------------------------------------------
 
 def _make_img_dir():
-    img_dir = pathlib.Path(".research/iteration11/images")
+    img_dir = pathlib.Path(".research/iteration12/images")
     img_dir.mkdir(parents=True, exist_ok=True)
     return img_dir
 
