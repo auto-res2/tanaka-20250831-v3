@@ -6,6 +6,7 @@ transformers
 peft
 fvcore
 torchmetrics
+torch-fidelity  # required for FID metric
 deepseed; extra == "cpu"   # optional
 pytorch-fid
 open-clip-torch
