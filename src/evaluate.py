@@ -47,7 +47,7 @@ def evaluate_model(args, model_ckpt: Path) -> Tuple[Path, dict]:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     unet = UNet2DConditionModel.from_pretrained(
         "runwayml/stable-diffusion-v1-5", subfolder="unet"
-    ).to(device, dtype=torch.float16)
+    ).to(device)  # keep fp32 params
     unet.load_state_dict(torch.load(model_ckpt, map_location="cpu"))
 
     score = _simple_quality_score(unet, device)
@@ -59,7 +59,7 @@ def evaluate_model(args, model_ckpt: Path) -> Tuple[Path, dict]:
     pd.DataFrame([{"quality": score, "peak_mem": mem}]).to_csv(eval_path, index=False)
 
     # bar figure --------------------------------------------------------
-    fig_dir = Path(".research/iteration9/images"); fig_dir.mkdir(parents=True, exist_ok=True)
+    fig_dir = Path(".research/iteration10/images"); fig_dir.mkdir(parents=True, exist_ok=True)
     fig_path = fig_dir / f"eval_{args.model}.pdf"
     plt.figure(figsize=(2.5,3))
     sns.barplot(x=[""], y=[score], palette=["#4C72B0"])

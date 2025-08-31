@@ -110,7 +110,8 @@ def train_model(args) -> Tuple[Path, Path]:
     # ------------------------------------------------------------------
     # model + optimiser -------------------------------------------------
     # ------------------------------------------------------------------
-    unet = _get_unet(args.model).to(device, dtype=torch.float16)
+    # keep model parameters in fp32; rely on autocast for fp16 execution
+    unet = _get_unet(args.model).to(device)
 
     if args.model == "rechu":
         try:
@@ -172,7 +173,7 @@ def train_model(args) -> Tuple[Path, Path]:
     df.to_csv(csv_path, index=False)
 
     # plot loss curve ---------------------------------------------------
-    fig_dir = Path(".research/iteration9/images"); fig_dir.mkdir(parents=True, exist_ok=True)
+    fig_dir = Path(".research/iteration10/images"); fig_dir.mkdir(parents=True, exist_ok=True)
     fig_path = fig_dir / f"loss_curve_{args.model}.pdf"
     plt.figure(figsize=(6,4))
     sns.lineplot(data=df, x="step", y="loss")
