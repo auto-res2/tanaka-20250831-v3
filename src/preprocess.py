@@ -1,3 +1,4 @@
+# original content preserved – no changes needed
 """src/preprocess.py
 Data-loading utilities.  For the purpose of the ReST memory experiment we use
 synthetic latent tensors instead of an expensive VAE + real images.  This

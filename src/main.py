@@ -1,7 +1,7 @@
 """src/main.py
 Entry point for  *python -m src.main*  as required by the instructions.  The
 script orchestrates one end-to-end run: synthetic-data creation ➜ training ➜
-evaluation ➜ PDF plot written to .research/iteration8/images/.
+evaluation ➜ PDF plot written to .research/iteration9/images/.
 
 For quick validation on a Tesla-T4 the default configuration trains only 300
 iterations.  Use the *--fast False* flag if you want the full 2-epoch demo.
@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 from .preprocess import get_dataloaders
 from .train import run_training
 from .evaluate import evaluate
-from .utils import ensure_dir
+from .utils import ensure_dir  # type: ignore – created alongside the new train.py
 
 
 def plot_loss(loss_curve, out_path: Path):
@@ -73,7 +73,7 @@ def main():
     # ------------------------------------------------------------------
     # Output handling
     # ------------------------------------------------------------------
-    img_dir = Path(".research/iteration8/images")
+    img_dir = Path(".research/iteration9/images")
     ensure_dir(img_dir)
     loss_fig = img_dir / "training_loss_curve.pdf"
     plot_loss(stats["loss_curve"], loss_fig)

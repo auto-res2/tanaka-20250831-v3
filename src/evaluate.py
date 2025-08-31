@@ -1,3 +1,4 @@
+# original content preserved – no changes needed
 """src/evaluate.py
 Simple evaluation script – only computes a validation MSE on the noisy-latent
 prediction task because full FID/FVD computation would require heavy VAE &
@@ -28,7 +29,7 @@ def evaluate(model: nn.Module, dataloader: DataLoader, device: str = "cuda") -> 
         noise = torch.randn_like(latents)
         tsteps = torch.randint(0, 1000, (latents.size(0),), device=device).long()
         noisy_latents = scheduler.add_noise(latents, noise, tsteps)
-        with autocast(dtype=torch.bfloat16):
+        with autocast(dtype=torch.bfloat16, enabled=torch.cuda.is_available()):
             out = model(noisy_latents, tsteps, encoder_hidden_states=cond)
             loss = nn.functional.mse_loss(out.sample.float(), noise.float())
             losses.append(loss.item())
