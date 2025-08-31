@@ -1,0 +1,34 @@
+=== pip install start Sun Aug 31 11:34:17 UTC 2025 ===
+Collecting torch>=2.1 (from -r requirements.txt (line 1))
+  Downloading torch-2.8.0-cp311-cp311-manylinux_2_28_x86_64.whl.metadata (30 kB)
+Collecting torchvision>=0.16 (from -r requirements.txt (line 2))
+  Downloading torchvision-0.23.0-cp311-cp311-manylinux_2_28_x86_64.whl.metadata (6.1 kB)
+Collecting diffusers>=0.24 (from -r requirements.txt (line 3))
+  Downloading diffusers-0.35.1-py3-none-any.whl.metadata (20 kB)
+Collecting accelerate>=0.24 (from -r requirements.txt (line 4))
+  Downloading accelerate-1.10.1-py3-none-any.whl.metadata (19 kB)
+Collecting transformers>=4.34 (from -r requirements.txt (line 5))
+  Downloading transformers-4.56.0-py3-none-any.whl.metadata (40 kB)
+Collecting bitsandbytes>=0.42 (from -r requirements.txt (line 6))
+  Downloading bitsandbytes-0.47.0-py3-none-manylinux_2_24_x86_64.whl.metadata (11 kB)
+Collecting fvcore>=0.1.5 (from -r requirements.txt (line 7))
+  Downloading fvcore-0.1.5.post20221221.tar.gz (50 kB)
+  Installing build dependencies: started
+  Installing build dependencies: finished with status 'done'
+  Getting requirements to build wheel: started
+  Getting requirements to build wheel: finished with status 'done'
+  Preparing metadata (pyproject.toml): started
+  Preparing metadata (pyproject.toml): finished with status 'done'
+Collecting tqdm (from -r requirements.txt (line 8))
+  Downloading tqdm-4.67.1-py3-none-any.whl.metadata (57 kB)
+Collecting numpy (from -r requirements.txt (line 9))
+  Downloading numpy-2.3.2-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (62 kB)
+Collecting pandas (from -r requirements.txt (line 10))
+  Downloading pandas-2.3.2-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (91 kB)
+Collecting matplotlib (from -r requirements.txt (line 11))
+  Downloading matplotlib-3.10.6-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (11 kB)
+Collecting seaborn (from -r requirements.txt (line 12))
+  Downloading seaborn-0.13.2-py3-none-any.whl.metadata (5.4 kB)
+Collecting pynvml (from -r requirements.txt (line 13))
+  Downloading pynvml-12.0.0-py3-none-any.whl.metadata (5.4 kB)
+=== experiment start Sun Aug 31 11:34:21 UTC 2025 ===
