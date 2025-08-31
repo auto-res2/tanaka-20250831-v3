@@ -16,5 +16,5 @@ tqdm
 pillow
 seaborn
 matplotlib
-yaml
+pyyaml
 wandb
