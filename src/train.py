@@ -64,7 +64,9 @@ def run_image_finetune(cfg: Dict) -> Dict[str, List]:
     from diffusers import StableDiffusionPipeline  # heavy import, keep local
 
     _set_seed(cfg.get("seed", 0))
-    accelerator = Accelerator(fp16=True)
+
+    # ``Accelerator`` switched from the old ``fp16`` flag to ``mixed_precision``.
+    accelerator = Accelerator(mixed_precision="fp16")
     device = accelerator.device
 
     # --------------- data ----------------
@@ -108,7 +110,8 @@ def run_image_finetune(cfg: Dict) -> Dict[str, List]:
                 noise = torch.randn_like(lat)
                 t = torch.randint(0, 1000, (imgs.size(0),), dtype=torch.long, device=device)
                 noisy = pipe.scheduler.add_noise(lat, noise, t)
-                out = pipe.unet(noisy, t, pipe.text_encoder(text_ids))[0]
+                text_emb = pipe.text_encoder(text_ids)[0]  # last_hidden_state
+                out = pipe.unet(noisy, t, encoder_hidden_states=text_emb).sample
                 loss = F.mse_loss(out, noise)
             scaler.scale(loss).backward()
             scaler.step(optimiser)
@@ -125,7 +128,8 @@ def run_image_finetune(cfg: Dict) -> Dict[str, List]:
                     noise = torch.randn_like(lat)
                     t = torch.randint(0, 1000, (imgs.size(0),), dtype=torch.long, device=device)
                     noisy = pipe.scheduler.add_noise(lat, noise, t)
-                    out = pipe.unet(noisy, t, pipe.text_encoder(text_ids))[0]
+                    text_emb = pipe.text_encoder(text_ids)[0]
+                    out = pipe.unet(noisy, t, encoder_hidden_states=text_emb).sample
                     recon = pipe.vae.decode(out / 0.18215).sample
                 fid_eval.update(imgs * 0.5 + 0.5, recon * 0.5 + 0.5)
         metr["fid"].append(fid_eval.compute())
@@ -172,7 +176,8 @@ def run_video_finetune(cfg: Dict) -> Dict[str, List]:
             with autocast():
                 noise = torch.randn_like(vids)
                 ts = torch.randint(0, 1000, (vids.size(0),), device=device)
-                out = pipe.unet(vids, ts, pipe.text_encoder(tokens))[0]
+                text_emb = pipe.text_encoder(tokens)[0]
+                out = pipe.unet(vids, ts, encoder_hidden_states=text_emb).sample
                 loss = F.mse_loss(out, noise)
             opt.zero_grad(); scaler.scale(loss).backward(); scaler.step(opt); scaler.update()
             t_iter.append(time.time() - t0)

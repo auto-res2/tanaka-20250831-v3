@@ -20,7 +20,7 @@ __all__ = [
 # -----------------------------------------------------------------------------
 # All figures must be stored in this directory (created on the fly)
 # -----------------------------------------------------------------------------
-_IM_DIR = Path(".research/iteration4/images")  # updated as per specification
+_IM_DIR = Path(".research/iteration5/images")  # updated as per specification
 _IM_DIR.mkdir(parents=True, exist_ok=True)
 
 
