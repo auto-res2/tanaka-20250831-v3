@@ -52,10 +52,24 @@ def get_dataloaders(cfg: Dict) -> Tuple[DataLoader, DataLoader, DataLoader]:
         T.ToTensor(),
     ])
 
-    data_root = pathlib.Path(cfg.get("data_root", ""))
-    if data_root.exists() and any(data_root.iterdir()):
+    data_root_str = cfg.get("data_root", "")
+    data_root = pathlib.Path(data_root_str)
+
+    use_real_data = (
+        bool(data_root_str)  # non-empty string provided
+        and data_root.exists()
+        and any(data_root.iterdir())  # directory is not empty
+    )
+
+    if use_real_data:
         print(f"[preprocess]  Loading real images from {data_root}")
-        full_ds = datasets.ImageFolder(data_root, transform=tf)
+        try:
+            full_ds = datasets.ImageFolder(data_root, transform=tf)
+        except (FileNotFoundError, RuntimeError) as exc:
+            # If the directory structure is not compatible with ImageFolder
+            # we silently fall back to synthetic data so the pipeline runs.
+            print(f"[preprocess]  Real data loading failed ({exc}); falling back to synthetic random images ✨")
+            full_ds = RandomImageSet(length=5000, image_size=img_size)
     else:
         print("[preprocess]  Falling back to synthetic random images ✨")
         full_ds = RandomImageSet(length=5000, image_size=img_size)

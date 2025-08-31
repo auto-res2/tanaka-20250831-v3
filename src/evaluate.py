@@ -2,7 +2,7 @@
 ----------------------------------
 Simple evaluation script that loads the model produced by `train.py` and
 computes a reconstruction MSE on a held-out validation set.
-Figures are saved as PDF in `.research/iteration12/images`.
+Figures are saved as PDF in `.research/iteration13/images`.
 """
 from __future__ import annotations
 
@@ -72,7 +72,7 @@ def evaluate(cfg: Dict):
         axes[i, 1].imshow(preds_vis[i].permute(1, 2, 0))
         axes[i, 1].axis("off")
     fig.suptitle("Ground-truth (left) vs. reconstruction (right)")
-    img_dir = pathlib.Path(".research/iteration12/images")
+    img_dir = pathlib.Path(".research/iteration13/images")
     img_dir.mkdir(parents=True, exist_ok=True)
     fig_path = img_dir / "qualitative_eval.pdf"
     plt.tight_layout()

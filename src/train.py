@@ -188,7 +188,10 @@ def train(cfg: Dict):
     import matplotlib.pyplot as plt
     from pathlib import Path
 
-    img_dir = Path(".research/iteration12/images")
+    # ------------------------------------------------------------------
+    # NOTE: all experiment images are now saved under iteration13
+    # ------------------------------------------------------------------
+    img_dir = Path(".research/iteration13/images")
     img_dir.mkdir(parents=True, exist_ok=True)
     plt.figure(figsize=(6, 4))
     plt.plot(losses)
