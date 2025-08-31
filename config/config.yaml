@@ -1,8 +1,11 @@
 # config/default.yaml
-# Basic hyper-parameters used by src.main (can be overridden via CLI)
-seed: 2024
-batch_size: 2
-max_steps: 200
-lr: 0.0001
-log_every: 20
-model: rechu
+# This file collects all default hyper-parameters.  It can be overridden
+# from the command-line or by passing a different yaml file.
+
+batch_size: 8
+image_size: 64
+num_steps: 500
+lr: 1e-3
+use_rechunet: 0
+chunk_hw: 2
+chunk_tb: 2

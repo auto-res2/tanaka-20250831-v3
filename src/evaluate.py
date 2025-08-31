@@ -1,73 +1,71 @@
 """src/evaluate.py
-Very small evaluation helper – computes a toy FID proxy and generates a figure.
-This is **not** a rigorous evaluation; it is only included so that the pipeline
-produces some quantitative output even without heavy datasets.
+----------------------------------
+Simple evaluation script that loads the model produced by `train.py` and
+computes a reconstruction MSE on a held-out validation set.
+Figures are saved as PDF in `.research/iteration11/images`.
 """
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Tuple
+import pathlib
+from typing import Dict
 
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-import seaborn as sns
 import torch
-from torch import autocast  # switched to generic autocast
-from torch.utils.data import DataLoader
-from torchvision import datasets, transforms
+import torch.nn.functional as F
+from tqdm import tqdm
 
-from diffusers import UNet2DConditionModel, DDPMScheduler
-
-from .preprocess import gpu_mem_mb
+from .preprocess import get_dataloaders
+from .train import TinyUNet, _apply_rechu_if_available  # re-use components
 
 
-def _null_encoder(batch: int, device: torch.device, dtype: torch.dtype = torch.float16) -> torch.Tensor:
-    """Creates an all-zero encoder_hidden_states tensor expected by the SD UNet."""
-    return torch.zeros(batch, 77, 768, device=device, dtype=dtype)
-
-
-@torch.no_grad()
-def _simple_quality_score(unet: torch.nn.Module, device: torch.device) -> float:
-    """A ridiculous *proxy* for quality: negative MSE on 16 generated images."""
-    unet.eval()
-    scheduler = DDPMScheduler(num_train_timesteps=50)
-    noise = torch.randn(16, 4, 64, 64, device=device)
-    for t in scheduler.timesteps:
-        t_batch = torch.tensor([t] * noise.size(0), device=device)
-        encoder_hidden_states = _null_encoder(noise.size(0), device, noise.dtype)
-        with autocast("cuda", dtype=torch.float16):
-            noise_pred = unet(noise, t_batch, encoder_hidden_states=encoder_hidden_states).sample
-        noise = scheduler.step(noise_pred, t, noise).prev_sample
-    score = -noise.float().pow(2).mean().item()
-    return score
-
-
-def evaluate_model(args, model_ckpt: Path) -> Tuple[Path, dict]:
+def evaluate(cfg: Dict):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    unet = UNet2DConditionModel.from_pretrained(
-        "runwayml/stable-diffusion-v1-5", subfolder="unet"
-    ).to(device)  # keep fp32 params
-    unet.load_state_dict(torch.load(model_ckpt, map_location="cpu"))
+    print(f"[eval]  Using device: {device}")
 
-    score = _simple_quality_score(unet, device)
-    mem = gpu_mem_mb()
+    # 1. data
+    val_loader = get_dataloaders(cfg)[2]
 
-    # save to CSV -------------------------------------------------------
-    out_dir = Path("logs"); out_dir.mkdir(exist_ok=True, parents=True)
-    eval_path = out_dir / f"eval_metrics_{args.model}.csv"
-    pd.DataFrame([{"quality": score, "peak_mem": mem}]).to_csv(eval_path, index=False)
+    # 2. model
+    model = TinyUNet(base_channels=cfg.get("base_channels", 32))
+    model_path = pathlib.Path(cfg.get("model_path", "models/toy_unet.pt"))
+    if not model_path.exists():
+        raise FileNotFoundError(f"Model file not found: {model_path}")
+    model.load_state_dict(torch.load(model_path, map_location="cpu"))
+    model = _apply_rechu_if_available(model, cfg).to(device).half().eval()
 
-    # bar figure --------------------------------------------------------
-    fig_dir = Path(".research/iteration10/images"); fig_dir.mkdir(parents=True, exist_ok=True)
-    fig_path = fig_dir / f"eval_{args.model}.pdf"
-    plt.figure(figsize=(2.5,3))
-    sns.barplot(x=[""], y=[score], palette=["#4C72B0"])
-    plt.ylabel("proxy quality ↑")
-    plt.title("Eval score")
+    # 3. loop
+    mse_total, n_pixels = 0.0, 0
+    with torch.no_grad():
+        for batch in tqdm(val_loader, desc="evaluating"):
+            imgs = batch["pixel_values"].to(device).half()
+            preds = model(imgs)
+            mse_total += F.mse_loss(preds.float(), imgs.float(), reduction="sum").item()
+            n_pixels += imgs.numel()
+
+    mse = mse_total / n_pixels
+    print(f"[eval]  MSE reconstruction error: {mse:.6f}")
+
+    # 4. save a qualitative visualisation (first 4 images)
+    import matplotlib as mpl
+
+    mpl.use("Agg")
+    import matplotlib.pyplot as plt
+
+    imgs = imgs[:4].cpu() * 0.5 + 0.5
+    preds = preds[:4].cpu() * 0.5 + 0.5
+
+    fig, axes = plt.subplots(4, 2, figsize=(4, 8))
+    for i in range(4):
+        axes[i, 0].imshow(imgs[i].permute(1, 2, 0))
+        axes[i, 0].axis("off")
+        axes[i, 1].imshow(preds[i].permute(1, 2, 0))
+        axes[i, 1].axis("off")
+    fig.suptitle("Ground-truth (left) vs. reconstruction (right)")
+    img_dir = pathlib.Path(".research/iteration11/images")
+    img_dir.mkdir(parents=True, exist_ok=True)
+    fig_path = img_dir / "qualitative_eval.pdf"
     plt.tight_layout()
-    plt.savefig(fig_path, dpi=300)
+    plt.savefig(fig_path, bbox_inches="tight")
     plt.close()
+    print(f"[eval]  Qualitative figure saved → {fig_path.relative_to(pathlib.Path.cwd())}")
 
-    print(f"[eval]  quality={score:.3f}  peak_mem={mem:.0f}MB")
-    return fig_path, {"quality": score, "peak_mem": mem}
+    return mse

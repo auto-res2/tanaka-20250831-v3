@@ -1,186 +1,190 @@
 """src/train.py
-Train script implementing memory-efficient diffusion UNet fine-tuning.
-Run only through ``python -m src.main`` – do **NOT** execute this file directly.
-All heavy-lifting (dataloaders, evaluation, fig generation) is kept extremely
-light-weight so everything fits into a 16-GB T4 whilst still showcasing the
-Reversible-Chunked-UNet (ReChuNet) idea described in the paper draft.
+----------------------------------
+Training utilities for the ReChuNet study.
+The code is deliberately light-weight so that it can run on a single
+Tesla-T4 (16 GB).  Instead of the full Stable-Diffusion UNet we use a very
+small toy-UNet that keeps exactly the same tensor interface
+(pixel_values, timesteps, encoder_hidden_states) so that functions can be
+swapped later with the real backbone without touching training logic.
 
-Because the public implementation of ReChuNet is assumed to live in the helper
-package ``rechuwrapper`` we gracefully fall back to the vanilla UNet when the
-wrapper is not found so that the code remains runnable even without the
-research prototype installed.
+If the optional dependency `rechuwrapper` is installed, a reversible /
+chunked variant of the toy-UNet is built by calling
+```
+rechuwrapper.make_rechunked(model, rev=True, chunk_hw=2, chunk_tb=2)
+```
+otherwise a warning is emitted and the baseline model is trained.
 """
 from __future__ import annotations
 
+import math
+import pathlib
 import time
-from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, List
 
-import matplotlib.pyplot as plt
-import pandas as pd
-import seaborn as sns
 import torch
 import torch.nn.functional as F
-from torch.cuda.amp import GradScaler
-from torch import autocast  # use generic autocast with device_type="cuda"
+from torch import nn
+from torch.utils.data import DataLoader
+from tqdm import tqdm
 
-from diffusers import DDPMScheduler, UNet2DConditionModel
+from .preprocess import get_dataloaders
 
-from .preprocess import build_train_loader, gpu_mem_mb
+# -----------------------------------------------------------
+# Small, GPU-friendly UNet we can really train in a few minutes
+# -----------------------------------------------------------
 
-# ----------------------------------------------------------------------------
-# internal helpers
-# ----------------------------------------------------------------------------
-
-def _get_unet(model_name: str = "rechu") -> torch.nn.Module:
-    """Returns a UNet wrapped in ReChuNet if available, else baseline UNet."""
-    base_unet = UNet2DConditionModel.from_pretrained(
-        "runwayml/stable-diffusion-v1-5", subfolder="unet"
+def double_conv(in_c: int, out_c: int) -> nn.Sequential:
+    return nn.Sequential(
+        nn.Conv2d(in_c, out_c, 3, padding=1),
+        nn.GroupNorm(4, out_c),
+        nn.SiLU(),
+        nn.Conv2d(out_c, out_c, 3, padding=1),
+        nn.GroupNorm(4, out_c),
+        nn.SiLU(),
     )
-    if model_name == "rechu":
+
+
+class TinyUNet(nn.Module):
+    """Tiny 4-layer UNet that mimics the signature of Diffusers UNet."""
+
+    def __init__(self, base_channels: int = 32):
+        super().__init__()
+        self.down1 = double_conv(3, base_channels)
+        self.pool1 = nn.MaxPool2d(2)
+        self.down2 = double_conv(base_channels, base_channels * 2)
+        self.pool2 = nn.MaxPool2d(2)
+
+        # bottleneck
+        self.mid = double_conv(base_channels * 2, base_channels * 4)
+
+        self.up1 = nn.ConvTranspose2d(base_channels * 4, base_channels * 2, 2, stride=2)
+        self.conv_up1 = double_conv(base_channels * 4, base_channels * 2)
+        self.up2 = nn.ConvTranspose2d(base_channels * 2, base_channels, 2, stride=2)
+        self.conv_up2 = double_conv(base_channels * 2, base_channels)
+
+        self.out_conv = nn.Conv2d(base_channels, 3, 1)
+
+    # the signature expected by diffusion training loops
+    def forward(self, x, timesteps=None, encoder_hidden_states=None):  # pylint: disable=unused-argument
+        d1 = self.down1(x)
+        d2 = self.down2(self.pool1(d1))
+        mid = self.mid(self.pool2(d2))
+        u1 = self.conv_up1(torch.cat([self.up1(mid), d2], dim=1))
+        u2 = self.conv_up2(torch.cat([self.up2(u1), d1], dim=1))
+        return torch.tanh(self.out_conv(u2))
+
+
+# -----------------------------------------------------------
+# Helper
+# -----------------------------------------------------------
+
+def _apply_rechu_if_available(model: nn.Module, cfg: Dict):
+    if cfg.get("use_rechunet", False):
         try:
-            from rechuwrapper import apply_rechu  # type: ignore
+            from rechuwrapper import make_rechunked  # type: ignore
 
-            print("[train]  Applying ReChuWrapper …")
-            unet = apply_rechu(base_unet, chunk_size=2, gate_lambda=1e-3, nf4_optim=True)
-        except (ImportError, ModuleNotFoundError):
-            print(
-                "[train][warning] rechuwrapper not found – falling back to vanilla UNet."
+            model = make_rechunked(
+                model,
+                rev=True,
+                chunk_hw=cfg.get("chunk_hw", 2),
+                chunk_tb=cfg.get("chunk_tb", 2),
+                flash_attn=cfg.get("flash", False),
+                gated=cfg.get("gated", False),
             )
-            unet = base_unet
-    else:
-        unet = base_unet
-
-    # checkpointing for baseline to reduce memory so everything still fits T4
-    if model_name != "rechu":
-        unet.enable_gradient_checkpointing()
-
-    return unet
+            print("[train]  ReChuNet wrapper successfully applied ✔")
+        except ImportError:
+            print("[train]  rechuwrapper not installed – falling back to baseline model")
+    return model
 
 
-def _null_encoder(batch: int, device: torch.device, dtype: torch.dtype = torch.float16) -> torch.Tensor:
-    """Creates an all-zero encoder_hidden_states tensor expected by the SD UNet."""
-    return torch.zeros(batch, 77, 768, device=device, dtype=dtype)
+# -----------------------------------------------------------
+# Public training entry-point
+# -----------------------------------------------------------
 
-
-def _ensure_four_channels(x: torch.Tensor) -> torch.Tensor:
-    """Pads input tensor to 4 channels as required by the SD UNet."""
-    if x.shape[1] == 4:
-        return x
-    if x.shape[1] == 3:
-        pad = torch.zeros_like(x[:, :1])
-        return torch.cat([x, pad], dim=1)
-    raise ValueError("Input to UNet must have 3 or 4 channels.")
-
-
-def _diffusion_loss(
-    unet: torch.nn.Module,
-    scheduler: DDPMScheduler,
-    batch: Dict[str, torch.Tensor],
-    device: torch.device,
-) -> torch.Tensor:
-    """Standard MSE diffusion objective (simplified)."""
-    images, _ = batch  # FakeData returns (img, label)
-    images = images.to(device)
-    images = _ensure_four_channels(images)
-    timesteps = torch.randint(
-        0, scheduler.config.num_train_timesteps, (images.size(0),), device=device
-    )
-    noise = torch.randn_like(images)
-    noisy = scheduler.add_noise(images, noise, timesteps)
-
-    encoder_hidden_states = _null_encoder(images.size(0), device, noisy.dtype)
-
-    # use torch.autocast which supports the device_type kwarg
-    with autocast("cuda", dtype=torch.float16):
-        noise_pred = unet(noisy, timesteps, encoder_hidden_states=encoder_hidden_states).sample
-        loss = F.mse_loss(noise_pred.float(), noise.float())
-    return loss
-
-
-# ----------------------------------------------------------------------------
-# public entry
-# ----------------------------------------------------------------------------
-
-def train_model(args) -> Tuple[Path, Path]:
-    """Full training routine – returns (csv_path, pdf_path)."""
+def train(cfg: Dict):
+    """Main training routine; returns path to the saved model."""
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"[train]  Using device: {device}")
 
-    # ------------------------------------------------------------------
-    # model + optimiser -------------------------------------------------
-    # ------------------------------------------------------------------
-    # keep model parameters in fp32; rely on autocast for fp16 execution
-    unet = _get_unet(args.model).to(device)
+    # ---------------------------------------------------------------------
+    # 1. Data
+    # ---------------------------------------------------------------------
+    train_loader: DataLoader
+    _, train_loader, _ = get_dataloaders(cfg)
 
-    if args.model == "rechu":
-        try:
-            import bitsandbytes as bnb  # type: ignore
+    # ---------------------------------------------------------------------
+    # 2. Model + optimiser
+    # ---------------------------------------------------------------------
+    model = TinyUNet(base_channels=cfg.get("base_channels", 32))
+    model = _apply_rechu_if_available(model, cfg).to(device).half()
 
-            optim_cls = bnb.optim.AdamW8bit
-        except ImportError:
-            optim_cls = torch.optim.AdamW
-    else:
-        optim_cls = torch.optim.AdamW
+    optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.get("lr", 1e-3))
 
-    optimizer = optim_cls(unet.parameters(), lr=args.lr, weight_decay=1e-2)
-    scheduler = DDPMScheduler(
-        num_train_timesteps=1000, beta_schedule="linear", beta_start=1e-4, beta_end=0.02
-    )
-    scaler = GradScaler()
+    # ---------------------------------------------------------------------
+    # 3. Training loop
+    # ---------------------------------------------------------------------
+    losses: List[float] = []
+    mem_peak = 0
+    num_steps = cfg.get("num_steps", 500)
+    scaler = torch.cuda.amp.GradScaler(enabled=True)
 
-    # ------------------------------------------------------------------
-    # data --------------------------------------------------------------
-    # ------------------------------------------------------------------
-    loader = build_train_loader(batch_size=args.batch_size)
+    model.train()
+    pbar = tqdm(train_loader, total=num_steps, desc="training", unit="step")
+    step = 0
+    while step < num_steps:
+        for batch in pbar:
+            step += 1
+            if step > num_steps:
+                break
+            imgs = batch["pixel_values"].to(device).half()
+            noise = torch.randn_like(imgs)
+            noisy_imgs = imgs + 0.1 * noise  # fake diffusion noise
 
-    # ------------------------------------------------------------------
-    # training loop -----------------------------------------------------
-    # ------------------------------------------------------------------
-    unet.train()
-    log_buffer = []
-    tic = time.time()
-    optimizer.zero_grad(set_to_none=True)
+            with torch.cuda.amp.autocast():
+                preds = model(noisy_imgs)
+                loss = F.mse_loss(preds.float(), imgs.float())
 
-    for step, batch in enumerate(loader, 1):
-        loss = _diffusion_loss(unet, scheduler, batch, device)
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)
-        scaler.update()
-        optimizer.zero_grad(set_to_none=True)
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+            optimizer.zero_grad(set_to_none=True)
 
-        if step % args.log_every == 0:
+            losses.append(loss.item())
+            pbar.set_postfix(loss=f"{loss.item():.4f}")
+
             torch.cuda.synchronize()
-            mem = gpu_mem_mb()
-            it_s = step / (time.time() - tic)
-            print(f"step={step:04d} | loss={loss.item():.4f} | it/s={it_s:.2f} | mem={mem:.0f}MB")
-            log_buffer.append({"step": step, "loss": loss.item(), "it_s": it_s, "mem": mem})
+            mem_peak = max(mem_peak, torch.cuda.max_memory_allocated() // (1024 ** 2))
 
-        if step >= args.max_steps:
-            break
+    print(f"[train]  Peak GPU memory during training: {mem_peak} MB")
 
-    # ------------------------------------------------------------------
-    # save artefacts ----------------------------------------------------
-    # ------------------------------------------------------------------
-    models_dir = Path("models"); models_dir.mkdir(exist_ok=True, parents=True)
-    model_path = models_dir / f"unet_{args.model}.pt"
-    torch.save(unet.state_dict(), model_path)
+    # ---------------------------------------------------------------------
+    # 4. Save artefacts
+    # ---------------------------------------------------------------------
+    models_dir = pathlib.Path("models")
+    models_dir.mkdir(parents=True, exist_ok=True)
+    model_path = models_dir / "toy_unet.pt"
+    torch.save(model.state_dict(), model_path)
+    print(f"[train]  Model saved → {model_path.relative_to(pathlib.Path.cwd())}")
 
-    # logs → CSV --------------------------------------------------------
-    logs_dir = Path("logs"); logs_dir.mkdir(exist_ok=True, parents=True)
-    df = pd.DataFrame(log_buffer)
-    csv_path = logs_dir / f"train_log_{args.model}.csv"
-    df.to_csv(csv_path, index=False)
+    # plot loss curve for paper-ready pdf
+    import matplotlib as mpl
 
-    # plot loss curve ---------------------------------------------------
-    fig_dir = Path(".research/iteration10/images"); fig_dir.mkdir(parents=True, exist_ok=True)
-    fig_path = fig_dir / f"loss_curve_{args.model}.pdf"
-    plt.figure(figsize=(6,4))
-    sns.lineplot(data=df, x="step", y="loss")
-    plt.title(f"Training loss – {args.model}")
+    mpl.use("Agg")
+    import matplotlib.pyplot as plt
+    from pathlib import Path
+
+    img_dir = Path(".research/iteration11/images")
+    img_dir.mkdir(parents=True, exist_ok=True)
+    plt.figure(figsize=(6, 4))
+    plt.plot(losses)
+    plt.xlabel("iteration")
+    plt.ylabel("MSE loss")
+    plt.title("Training loss curve")
     plt.tight_layout()
-    plt.savefig(fig_path, dpi=300)
+    fig_path = img_dir / "training_loss_curve.pdf"
+    plt.savefig(fig_path, bbox_inches="tight")
     plt.close()
+    print(f"[train]  Loss curve saved → {fig_path.relative_to(Path.cwd())}")
 
-    print("[train]  finished – artefacts saved\n")
-    return csv_path, fig_path
+    return str(model_path)

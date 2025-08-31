@@ -1,17 +1,13 @@
-torch>=2.1
+torch>=2.1.0
 torchvision
-accelerate
-diffusers>=0.23.0
-transformers
-xformers>=0.0.22
-bitsandbytes>=0.40
-fvcore
-torch_fidelity
-webdataset
-pynvml
-psutil
-pandas
 numpy
 matplotlib
 seaborn
+rich
 tqdm
+pynvml
+scipy
+# optional – only used when available (not strictly required for toy run)
+# diffusers>=0.23.0
+# transformers>=4.36
+# rechuwrapper>=0.9.1
