@@ -10,7 +10,8 @@ from typing import Dict, List, Tuple, Optional
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.cuda.amp import autocast, GradScaler
+# Use the new (recommended) AMP API
+from torch.amp import autocast, GradScaler
 from torch.utils.data import DataLoader
 import matplotlib
 matplotlib.use("Agg")
@@ -113,14 +114,14 @@ def build_model(cfg: Dict) -> nn.Module:
 def train(model: nn.Module, loader: DataLoader, cfg: Dict) -> Dict[str, List[float]]:
     model.train()
     optimiser = torch.optim.AdamW(model.parameters(), lr=cfg["lr"])
-    scaler = GradScaler()
+    scaler = GradScaler(device_type="cuda")
 
     mem, losses = [], []
     for epoch in range(cfg["epochs"]):
         for batch, (x, _) in enumerate(loader):
             x = x.to("cuda", dtype=torch.float16)
             torch.cuda.reset_peak_memory_stats()
-            with autocast(dtype=torch.float16):
+            with autocast(device_type="cuda", dtype=torch.float16):
                 out = model(x)
                 loss = F.mse_loss(out, x)
             scaler.scale(loss).backward()
@@ -132,11 +133,11 @@ def train(model: nn.Module, loader: DataLoader, cfg: Dict) -> Dict[str, List[flo
     return {"loss": losses, "mem": mem}
 
 # -------------------------------------------------------
-#  Plot helpers – saved under .research/iteration12/images
+#  Plot helpers – saved under .research/iteration13/images
 # -------------------------------------------------------
 
 def _make_img_dir():
-    img_dir = pathlib.Path(".research/iteration12/images")
+    img_dir = pathlib.Path(".research/iteration13/images")
     img_dir.mkdir(parents=True, exist_ok=True)
     return img_dir
 

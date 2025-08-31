@@ -8,6 +8,8 @@ import torch, pathlib, json
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
 from torchvision import datasets, transforms
+# Updated AMP import
+from torch.amp import autocast
 
 from .train import build_model
 
@@ -25,7 +27,7 @@ def evaluate(cfg_path: str):
     model.load_state_dict(torch.load(pathlib.Path("models")/f"{cfg['run_name']}.pt"))
     model.eval()
     mse_total, n = 0.0, 0
-    with torch.no_grad(), torch.cuda.amp.autocast(dtype=torch.float16):
+    with torch.no_grad(), autocast(device_type="cuda", dtype=torch.float16):
         for x,_ in loader:
             x = x.to("cuda", dtype=torch.float16)
             out = model(x)
