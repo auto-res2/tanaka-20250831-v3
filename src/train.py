@@ -3,7 +3,7 @@ train.py – implements the training loop that is used by src.main.
 All heavy-lifting (mixed precision, distributed, gradient accumulation …)
  is delegated to 🤗 `accelerate` so that the same code runs on 1 GPU or many.
 The trainer is intentionally general-purpose: it receives
-  • a UNet (from diffusers);
+  • a UNet (from diffusers or a lightweight custom one);
   • a Scheduler (DDPM, DDIM …);
   • a PyTorch DataLoader that yields dicts with an `image` tensor and, for
     class-conditional models, an optional `label` tensor.
@@ -12,7 +12,7 @@ The trainer logs
   – peak GPU memory (GB),
   – iterations / second
 and stores them as a CSV so that downstream visualisation is trivial.
-Figures are saved as PDF (Vector) under .research/iteration3/images.
+Figures are saved as PDF (Vector) under .research/iteration4/images.
 """
 from __future__ import annotations
 
@@ -125,7 +125,8 @@ class Trainer:
             with self.accelerator.accumulate(self.model):
                 loss = self._step(batch)
                 self.accelerator.backward(loss)
-                self.optim.step(); self.optim.zero_grad()
+                self.optim.step()
+                self.optim.zero_grad()
             toc = time.time()
             step_time = toc - tic
             total_time += step_time
@@ -151,7 +152,7 @@ class Trainer:
             print(f"[Trainer] metrics saved → {csv_path}")
 
             # plot loss curve & memory curve -----------------------------
-            img_dir = Path(".research/iteration3/images")
+            img_dir = Path(".research/iteration4/images")
             img_dir.mkdir(parents=True, exist_ok=True)
             save_line_plot(
                 self.metrics["step"],

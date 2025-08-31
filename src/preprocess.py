@@ -19,6 +19,23 @@ __all__ = [
     "get_dataloaders",
 ]
 
+
+class _DictWrapper(torch.utils.data.Dataset):
+    """Wraps any torchvision-style dataset that returns (img, label) into a dict so
+    that downstream code can stay clean (expects {"image": …, "label": …})."""
+
+    def __init__(self, ds: torch.utils.data.Dataset):
+        super().__init__()
+        self.ds = ds
+
+    def __len__(self):
+        return len(self.ds)
+
+    def __getitem__(self, idx):
+        img, label = self.ds[idx]
+        return {"image": img, "label": torch.tensor(label, dtype=torch.long)}
+
+
 def _cifar10_loader(batch: int, workers: int = 4):
     tf = T.Compose(
         [
@@ -29,8 +46,8 @@ def _cifar10_loader(batch: int, workers: int = 4):
             T.Lambda(lambda x: x * 2.0 - 1.0),
         ]
     )
-    train = torchvision.datasets.CIFAR10(root="data", train=True, download=True, transform=tf)
-    test = torchvision.datasets.CIFAR10(root="data", train=False, download=True, transform=tf)
+    train = _DictWrapper(torchvision.datasets.CIFAR10(root="data", train=True, download=True, transform=tf))
+    test = _DictWrapper(torchvision.datasets.CIFAR10(root="data", train=False, download=True, transform=tf))
     dl_train = torch.utils.data.DataLoader(train, batch_size=batch, shuffle=True, num_workers=workers, pin_memory=True)
     dl_test = torch.utils.data.DataLoader(test, batch_size=batch, shuffle=False, num_workers=workers, pin_memory=True)
     return dl_train, dl_test
@@ -55,8 +72,8 @@ def get_dataloaders(dataset: Literal["cifar10", "imagenet"], batch: int = 8):
                 T.Lambda(lambda x: x * 2.0 - 1.0),
             ]
         )
-        train_ds = torchvision.datasets.ImageFolder("data/imagenet/train", transform=tf)
-        val_ds = torchvision.datasets.ImageFolder("data/imagenet/val", transform=tf)
+        train_ds = _DictWrapper(torchvision.datasets.ImageFolder("data/imagenet/train", transform=tf))
+        val_ds = _DictWrapper(torchvision.datasets.ImageFolder("data/imagenet/val", transform=tf))
         dl_train = torch.utils.data.DataLoader(train_ds, batch_size=batch, shuffle=True, num_workers=8, pin_memory=True)
         dl_val = torch.utils.data.DataLoader(val_ds, batch_size=batch, shuffle=False, num_workers=4, pin_memory=True)
         return dl_train, dl_val
