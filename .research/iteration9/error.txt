@@ -1,0 +1,20 @@
+/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/train.py:129: FutureWarning: `torch.cuda.amp.GradScaler(args...)` is deprecated. Please use `torch.amp.GradScaler('cuda', args...)` instead.
+  scaler = GradScaler()
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/main.py", line 57, in <module>
+    main()
+  File "/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/main.py", line 43, in main
+    csv_path, loss_fig = train_model(args)
+                         ^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/tanaka-20250831-v3/tanaka-20250831-v3/src/train.py", line 147, in train_model
+    scaler.step(optimizer)
+  File "/home/runner/work/_tool/Python/3.11.13/x64/lib/python3.11/site-packages/torch/amp/grad_scaler.py", line 459, in step
+    self.unscale_(optimizer)
+  File "/home/runner/work/_tool/Python/3.11.13/x64/lib/python3.11/site-packages/torch/amp/grad_scaler.py", line 346, in unscale_
+    optimizer_state["found_inf_per_device"] = self._unscale_grads_(
+                                              ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/runner/work/_tool/Python/3.11.13/x64/lib/python3.11/site-packages/torch/amp/grad_scaler.py", line 264, in _unscale_grads_
+    raise ValueError("Attempting to unscale FP16 gradients.")
+ValueError: Attempting to unscale FP16 gradients.
