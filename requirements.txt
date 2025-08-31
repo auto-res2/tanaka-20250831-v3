@@ -1,1 +1,21 @@
-# Please list the required python packages.
+torch>=2.0
+torchvision
+accelerate
+diffusers
+transformers
+peft
+fvcore
+torchmetrics
+deepseed; extra == "cpu"   # optional
+pytorch-fid
+pytorch-fvd
+open-clip-torch
+decord
+pandas
+numpy
+tqdm
+pillow
+seaborn
+matplotlib
+yaml
+wandb
