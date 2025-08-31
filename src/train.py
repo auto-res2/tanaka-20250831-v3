@@ -27,7 +27,14 @@ from torch import nn
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from .preprocess import get_dataloaders
+# ---------------------------------------------------------------------------
+# Import dataset helpers (works whether the module is executed as a package
+# or as a plain script)
+# ---------------------------------------------------------------------------
+try:
+    from .preprocess import get_dataloaders  # type: ignore
+except ImportError:  # fallback when executed as a plain script
+    from preprocess import get_dataloaders  # type: ignore
 
 # -----------------------------------------------------------
 # Small, GPU-friendly UNet we can really train in a few minutes
@@ -117,7 +124,10 @@ def train(cfg: Dict):
     # 2. Model + optimiser
     # ---------------------------------------------------------------------
     model = TinyUNet(base_channels=cfg.get("base_channels", 32))
-    model = _apply_rechu_if_available(model, cfg).to(device).half()
+    model = _apply_rechu_if_available(model, cfg).to(device)
+
+    if device.type == "cuda":
+        model = model.half()
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.get("lr", 1e-3))
 
@@ -127,7 +137,7 @@ def train(cfg: Dict):
     losses: List[float] = []
     mem_peak = 0
     num_steps = cfg.get("num_steps", 500)
-    scaler = torch.cuda.amp.GradScaler(enabled=True)
+    scaler = torch.cuda.amp.GradScaler(enabled=device.type == "cuda")
 
     model.train()
     pbar = tqdm(train_loader, total=num_steps, desc="training", unit="step")
@@ -137,11 +147,13 @@ def train(cfg: Dict):
             step += 1
             if step > num_steps:
                 break
-            imgs = batch["pixel_values"].to(device).half()
+            imgs = batch["pixel_values"].to(device)
+            if device.type == "cuda":
+                imgs = imgs.half()
             noise = torch.randn_like(imgs)
             noisy_imgs = imgs + 0.1 * noise  # fake diffusion noise
 
-            with torch.cuda.amp.autocast():
+            with torch.cuda.amp.autocast(enabled=device.type == "cuda"):
                 preds = model(noisy_imgs)
                 loss = F.mse_loss(preds.float(), imgs.float())
 
@@ -153,10 +165,12 @@ def train(cfg: Dict):
             losses.append(loss.item())
             pbar.set_postfix(loss=f"{loss.item():.4f}")
 
-            torch.cuda.synchronize()
-            mem_peak = max(mem_peak, torch.cuda.max_memory_allocated() // (1024 ** 2))
+            if device.type == "cuda":
+                torch.cuda.synchronize()
+                mem_peak = max(mem_peak, torch.cuda.max_memory_allocated() // (1024 ** 2))
 
-    print(f"[train]  Peak GPU memory during training: {mem_peak} MB")
+    if device.type == "cuda":
+        print(f"[train]  Peak GPU memory during training: {mem_peak} MB")
 
     # ---------------------------------------------------------------------
     # 4. Save artefacts
@@ -174,7 +188,7 @@ def train(cfg: Dict):
     import matplotlib.pyplot as plt
     from pathlib import Path
 
-    img_dir = Path(".research/iteration11/images")
+    img_dir = Path(".research/iteration12/images")
     img_dir.mkdir(parents=True, exist_ok=True)
     plt.figure(figsize=(6, 4))
     plt.plot(losses)

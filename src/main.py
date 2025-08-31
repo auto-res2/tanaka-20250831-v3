@@ -1,15 +1,15 @@
 """src/main.py
 ----------------------------------
-Entry-point that is executed via `python -m src.main`.
+Entry-point that is executed via `python -m src.main` *or* `python src/main.py`.
 
 Usage examples
 --------------
 Train a baseline model
-    python -m src.main --mode train
+    python src/main.py                # default is training mode
 
 Train a memory-efficient ReChuNet model and then evaluate it
-    python -m src.main --mode train --use_rechunet 1 --num_steps 1000
-    python -m src.main --mode eval
+    python src/main.py --use_rechunet 1 --num_steps 1000
+    python src/main.py --mode eval
 """
 from __future__ import annotations
 
@@ -19,10 +19,17 @@ import pathlib
 import sys
 from typing import Dict
 
-from rich import print  # pretty std-out
+# ---------------------------------------------------------------------------
+# Imports that work both in package and script mode
+# ---------------------------------------------------------------------------
+try:
+    from .train import train as train_fn  # type: ignore
+    from .evaluate import evaluate as eval_fn  # type: ignore
+except ImportError:  # script mode fallback
+    from train import train as train_fn  # type: ignore
+    from evaluate import evaluate as eval_fn  # type: ignore
 
-from .train import train as train_fn
-from .evaluate import evaluate as eval_fn
+from rich import print  # pretty std-out
 
 
 # ---------------------------------------------------------------------
@@ -31,7 +38,7 @@ from .evaluate import evaluate as eval_fn
 
 def _parse_cfg() -> Dict:
     p = argparse.ArgumentParser(description="ReChuNet study runner")
-    p.add_argument("--mode", choices=["train", "eval"], required=True)
+    p.add_argument("--mode", choices=["train", "eval"], default="train", help="Execution mode (default: train)")
 
     # generic hyper-params
     p.add_argument("--data_root", type=str, default="")
